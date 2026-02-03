@@ -1,0 +1,14 @@
+{% macro format_price(price) %}
+    {% if price %}
+        {{ "{:,.0f}".format(price).replace(",", " ") }} ₽
+    {% else %}
+        0 ₽
+    {% endif %}
+{% endmacro %}
+
+{% macro format_discount(old_price, new_price) %}
+    {% if old_price and old_price > new_price %}
+        {% set discount = ((old_price - new_price) / old_price * 100) | round %}
+        <span class="discount-badge">-{{ discount }}%</span>
+    {% endif %}
+{% endmacro %}
