@@ -4,7 +4,5 @@ flask-login==0.6.3
 python-dotenv==1.0.0
 pytelegrambotapi==4.18.0
 gunicorn==21.2.0
-pillow==10.3.0
 python-3.11.0
 requests==2.31.0
-
