@@ -1,8 +1,8 @@
-# app.py
+# app.py - ПОЛНОСТЬЮ ИСПРАВЛЕННЫЙ КОД
 from flask import Flask, render_template, jsonify, request, session, redirect, url_for, flash, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, current_user, logout_user
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 import json
 import logging
@@ -11,6 +11,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 import random
 import string
+from functools import wraps
+import traceback
 
 # Настройка логгирования
 logging.basicConfig(
@@ -33,6 +35,7 @@ app.config['SESSION_PERMANENT'] = False
 app.config['PERMANENT_SESSION_LIFETIME'] = 3600
 app.config['UPLOAD_FOLDER'] = 'static/uploads'
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+app.config['JSON_AS_ASCII'] = False
 
 # Создаем необходимые директории
 for folder in ['instance', 'static/uploads', 'static/uploads/products']:
@@ -47,7 +50,7 @@ SHOP_EMAIL = "info@vogue-elite.ru"
 SUPPORT_USERNAME = "@Lexaa_161"
 FREE_DELIVERY_THRESHOLD = 200000  # 200,000 рублей
 DELIVERY_COST = 2000  # 2,000 рублей
-WEB_APP_URL = "http://localhost:8080"
+WEB_APP_URL = "https://fashionstorebot.onrender.com"
 CURRENCY = "₽"
 
 # Эмодзи для использования в шаблонах
@@ -118,6 +121,8 @@ class Emoji:
     GLOBE = "🌍"
     FLAG = "🏁"
     SHOP = "🛒"
+    BUG = "🐛"
+    REFRESH = "🔄"
 
 # Категории товаров
 class Categories:
@@ -141,7 +146,7 @@ class Categories:
 class Brands:
     GUCCI = "Gucci"
     CHANEL = "Chanel"
-    DIOR = "Dior"
+    Dior = "Dior"
     LOUIS_VUITTON = "Louis Vuitton"
     HERMES = "Hermès"
     PRADA = "Prada"
@@ -166,6 +171,27 @@ login_manager.login_view = 'login'
 login_manager.login_message = 'Для доступа к этой странице необходимо войти в систему.'
 login_manager.login_message_category = 'warning'
 
+# Декоратор для API ответов
+def api_response(func):
+    """Декоратор для API маршрутов, возвращающий JSON"""
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            result = func(*args, **kwargs)
+            if isinstance(result, dict):
+                return jsonify(result)
+            elif isinstance(result, tuple) and len(result) == 2 and isinstance(result[0], dict):
+                return jsonify(result[0]), result[1]
+            return result
+        except Exception as e:
+            logger.error(f"API Error in {func.__name__}: {e}")
+            logger.error(traceback.format_exc())
+            return jsonify({
+                'success': False,
+                'message': f'Internal server error: {str(e)}'
+            }), 500
+    return wrapper
+
 # Модели базы данных
 class User(db.Model, UserMixin):
     __tablename__ = 'users'
@@ -182,7 +208,7 @@ class User(db.Model, UserMixin):
     total_orders = db.Column(db.Integer, default=0)
     total_spent = db.Column(db.Float, default=0.0)
     referral_code = db.Column(db.String(50), unique=True, nullable=True)
-    notifications_enabled = db.Column(db.Boolean, default=True)
+    notification_enabled = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     last_activity = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -371,6 +397,44 @@ class PromoCode(db.Model):
     def __repr__(self):
         return f'<PromoCode {self.code}>'
 
+class Wishlist(db.Model):
+    __tablename__ = 'wishlist'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
+    added_at = db.Column(db.DateTime, default=datetime.utcnow)
+    user = db.relationship('User', backref=db.backref('wishlist_items', lazy=True))
+    product = db.relationship('Product', backref=db.backref('wishlist_entries', lazy=True))
+    
+    def __repr__(self):
+        return f'<Wishlist {self.user_id} - {self.product_id}>'
+
+class CompareList(db.Model):
+    __tablename__ = 'compare_list'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
+    added_at = db.Column(db.DateTime, default=datetime.utcnow)
+    user = db.relationship('User', backref=db.backref('compare_items', lazy=True))
+    product = db.relationship('Product', backref=db.backref('compare_entries', lazy=True))
+    
+    def __repr__(self):
+        return f'<CompareList {self.user_id} - {self.product_id}>'
+
+class Notification(db.Model):
+    __tablename__ = 'notifications'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    title = db.Column(db.String(200), nullable=False)
+    message = db.Column(db.Text, nullable=False)
+    type = db.Column(db.String(50), default='info')  # info, success, warning, error
+    is_read = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    user = db.relationship('User', backref=db.backref('notifications', lazy=True))
+    
+    def __repr__(self):
+        return f'<Notification {self.title}>'
+
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
@@ -398,7 +462,7 @@ def init_database():
                     is_admin=True,
                     is_vip=True,
                     referral_code='ADMIN001',
-                    notifications_enabled=True
+                    notification_enabled=True
                 )
                 admin.set_password('admin123')
                 db.session.add(admin)
@@ -415,7 +479,7 @@ def init_database():
                     total_orders=15,
                     total_spent=1500000,
                     referral_code='VIP001',
-                    notifications_enabled=True
+                    notification_enabled=True
                 )
                 test_user.set_password('test123')
                 db.session.add(test_user)
@@ -432,7 +496,7 @@ def init_database():
                     total_orders=3,
                     total_spent=450000,
                     referral_code='USER001',
-                    notifications_enabled=True
+                    notification_enabled=True
                 )
                 regular_user.set_password('user123')
                 db.session.add(regular_user)
@@ -462,11 +526,11 @@ def init_database():
                         'brand': Brands.GUCCI,
                         'season': 'Осень-Зима 2024',
                         'country': 'Италия',
-                        'image_url': 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=800&h=1200&fit=crop&q=80',
+                        'image_url': '/static/img/products/product-1.jpg',
                         'images': json.dumps([
-                            'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=800&h=1200&fit=crop&q=80',
-                            'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=800&h=1200&fit=crop&q=80',
-                            'https://images.unsplash.com/photo-1539008835657-9e8e9680c956?w=800&h=1200&fit=crop&q=80'
+                            '/static/img/products/product-1.jpg',
+                            '/static/img/products/product-2.jpg',
+                            '/static/img/products/product-3.jpg'
                         ]),
                         'is_new': True,
                         'is_exclusive': True,
@@ -489,10 +553,10 @@ def init_database():
                         'size': 'XS,S,M,L',
                         'color': 'Белый, Черный, Бордовый',
                         'material': 'Итальянский шелк, Натуральная кожа',
-                        'brand': Brands.DIOR,
+                        'brand': Brands.Dior,
                         'season': 'Весна-Лето 2024',
                         'country': 'Франция',
-                        'image_url': 'https://images.unsplash.com/photo-1539008835657-9e8e9680c956?w=800&h=1200&fit=crop&q=80',
+                        'image_url': '/static/img/products/product-2.jpg',
                         'is_new': True,
                         'is_hit': True,
                         'stock': 12,
@@ -516,7 +580,7 @@ def init_database():
                         'brand': 'Brioni',
                         'season': 'Круглогодичный',
                         'country': 'Италия',
-                        'image_url': 'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=800&h=1200&fit=crop&q=80',
+                        'image_url': '/static/img/products/product-3.jpg',
                         'is_exclusive': True,
                         'stock': 8
                     },
@@ -538,7 +602,7 @@ def init_database():
                         'brand': Brands.HERMES,
                         'season': 'Круглогодичный',
                         'country': 'Франция',
-                        'image_url': 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=800&h=1200&fit=crop&q=80',
+                        'image_url': '/static/img/products/product-4.jpg',
                         'is_exclusive': True,
                         'is_limited': True,
                         'stock': 1
@@ -561,7 +625,7 @@ def init_database():
                         'brand': 'Christian Louboutin',
                         'season': 'Круглогодичный',
                         'country': 'Италия',
-                        'image_url': 'https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=800&h=1200&fit=crop&q=80',
+                        'image_url': '/static/img/products/product-5.jpg',
                         'is_new': True,
                         'is_hit': True,
                         'stock': 15
@@ -584,7 +648,7 @@ def init_database():
                         'brand': 'Cartier',
                         'season': 'Круглогодичный',
                         'country': 'Франция',
-                        'image_url': 'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?w=800&h=1200&fit=crop&q=80',
+                        'image_url': '/static/img/products/product-6.jpg',
                         'is_exclusive': True,
                         'stock': 2
                     },
@@ -606,7 +670,7 @@ def init_database():
                         'brand': 'Max Mara',
                         'season': 'Осень-Зима',
                         'country': 'Италия',
-                        'image_url': 'https://images.unsplash.com/photo-1544441893-675973e31985?w=800&h=1200&fit=crop&q=80',
+                        'image_url': '/static/img/products/product-7.jpg',
                         'is_hit': True,
                         'stock': 10
                     },
@@ -628,7 +692,7 @@ def init_database():
                         'brand': 'Rolex',
                         'season': 'Круглогодичный',
                         'country': 'Швейцария',
-                        'image_url': 'https://images.unsplash.com/photo-1523170335258-f5ed11844a49?w=800&h=1200&fit=crop&q=80',
+                        'image_url': '/static/img/products/product-8.jpg',
                         'is_exclusive': True,
                         'stock': 3
                     },
@@ -650,7 +714,7 @@ def init_database():
                         'brand': Brands.CHANEL,
                         'season': 'Круглогодичный',
                         'country': 'Франция',
-                        'image_url': 'https://images.unsplash.com/photo-1541643600914-78b084683601?w=800&h=1200&fit=crop&q=80',
+                        'image_url': '/static/img/products/product-9.jpg',
                         'is_limited': True,
                         'stock': 5
                     },
@@ -672,7 +736,7 @@ def init_database():
                         'brand': Brands.HERMES,
                         'season': 'Весна-Осень',
                         'country': 'Франция',
-                        'image_url': 'https://images.unsplash.com/photo-1550639524-a4e6c797699d?w=800&h=1200&fit=crop&q=80',
+                        'image_url': '/static/img/products/product-10.jpg',
                         'is_new': True,
                         'stock': 7
                     }
@@ -823,7 +887,7 @@ def catalog_page():
         elif sort == 'price_high':
             query = query.order_by(Product.price.desc())
         elif sort == 'discount':
-            query = query.order_by(Product.discount.desc())
+            query = query.filter(Product.discount > 0).order_by(Product.discount.desc())
         elif sort == 'popular':
             query = query.order_by(Product.is_hit.desc(), Product.created_at.desc())
         else:  # newest
@@ -841,12 +905,19 @@ def catalog_page():
         brands = db.session.query(Product.brand).distinct().all()
         brands = [b[0] for b in brands if b[0]]
         
+        # Получаем цены для фильтра
+        min_price = db.session.query(db.func.min(Product.price)).filter_by(is_active=True).scalar() or 0
+        max_price = db.session.query(db.func.max(Product.price)).filter_by(is_active=True).scalar() or 100000
+        
         return render_template('catalog.html',
                              products=products,
                              categories=categories,
                              brands=brands,
+                             min_price=int(min_price),
+                             max_price=int(max_price),
                              current_category=category,
-                             current_sort=sort)
+                             current_sort=sort,
+                             current_page=page)
     except Exception as e:
         logger.error(f"Ошибка загрузки каталога: {e}")
         flash('Произошла ошибка при загрузке каталога', 'error')
@@ -883,12 +954,30 @@ def product_detail(product_id):
         if product.color:
             colors = [c.strip() for c in product.color.split(',')]
         
+        # Проверяем, есть ли товар в избранном
+        in_wishlist = False
+        if current_user.is_authenticated:
+            in_wishlist = Wishlist.query.filter_by(
+                user_id=current_user.id,
+                product_id=product_id
+            ).first() is not None
+        
+        # Проверяем, есть ли товар в сравнении
+        in_compare = False
+        if current_user.is_authenticated:
+            in_compare = CompareList.query.filter_by(
+                user_id=current_user.id,
+                product_id=product_id
+            ).first() is not None
+        
         return render_template('product.html',
                              product=product,
                              images=images,
                              similar_products=similar_products,
                              sizes=sizes,
-                             colors=colors)
+                             colors=colors,
+                             in_wishlist=in_wishlist,
+                             in_compare=in_compare)
     except Exception as e:
         logger.error(f"Ошибка загрузки страницы товара {product_id}: {e}")
         flash('Товар не найден', 'error')
@@ -1107,7 +1196,7 @@ def profile():
                     flash('Пароли не совпадают', 'error')
             
             # Настройки уведомлений
-            current_user.notifications_enabled = 'notifications' in request.form
+            current_user.notification_enabled = 'notifications' in request.form
             
             db.session.commit()
             flash('Профиль успешно обновлен', 'success')
@@ -1180,9 +1269,13 @@ def admin_panel():
         flash('Произошла ошибка при загрузке админ-панели', 'error')
         return redirect(url_for('index'))
 
+# ==================== API МАРШРУТЫ ====================
+
 # API для управления товарами
 @app.route('/api/products', methods=['GET'])
+@api_response
 def api_products():
+    """API для получения списка товаров"""
     try:
         category = request.args.get('category', None)
         limit = request.args.get('limit', 100, type=int)
@@ -1209,7 +1302,7 @@ def api_products():
                 'category': product.category,
                 'subcategory': product.subcategory,
                 'brand': product.brand or '',
-                'image_url': product.image_url or '',
+                'image_url': product.image_url or '/static/img/placeholder.jpg',
                 'images': product.get_images_list(),
                 'stock': product.stock,
                 'is_new': product.is_new,
@@ -1228,30 +1321,90 @@ def api_products():
         
         total_products = Product.query.filter_by(is_active=True).count()
         
-        return jsonify({
+        return {
             'success': True,
             'products': products_data,
             'count': len(products_data),
             'total': total_products,
             'offset': offset,
             'limit': limit
-        })
+        }
     except Exception as e:
         logger.error(f"Ошибка API /api/products: {e}")
-        return jsonify({
+        return {
             'success': False,
             'message': 'Произошла ошибка при получении товаров',
             'products': []
-        }), 500
+        }, 500
+
+# API для получения товара по ID
+@app.route('/api/products/<int:product_id>', methods=['GET'])
+@api_response
+def api_get_product_by_id(product_id):
+    """API для получения товара по ID"""
+    try:
+        product = Product.query.get(product_id)
+        
+        if not product:
+            return {
+                'success': False,
+                'message': 'Товар не найден'
+            }, 404
+        
+        # Формируем ответ
+        images = product.get_images_list()
+        if product.image_url and product.image_url not in images:
+            images.insert(0, product.image_url)
+        
+        product_data = {
+            'id': product.id,
+            'article': product.article,
+            'name': product.name,
+            'description': product.description or '',
+            'detailed_description': product.detailed_description or '',
+            'price': product.price,
+            'old_price': product.old_price,
+            'discount': product.discount,
+            'category': product.category,
+            'subcategory': product.subcategory or '',
+            'brand': product.brand or '',
+            'image_url': product.image_url or '/static/img/placeholder.jpg',
+            'images': images,
+            'stock': product.stock,
+            'is_new': product.is_new,
+            'is_hit': product.is_hit,
+            'is_exclusive': product.is_exclusive,
+            'is_limited': product.is_limited,
+            'color': product.color or '',
+            'size': product.size or '',
+            'material': product.material or '',
+            'country': product.country or '',
+            'season': product.season or '',
+            'created_at': product.created_at.isoformat() if product.created_at else None,
+            'updated_at': product.updated_at.isoformat() if product.updated_at else None
+        }
+        
+        return {
+            'success': True,
+            'product': product_data
+        }
+            
+    except Exception as e:
+        logger.error(f"Ошибка получения товара {product_id}: {e}")
+        return {
+            'success': False,
+            'message': 'Ошибка получения товара'
+        }, 500
 
 # API для добавления в корзину
 @app.route('/api/cart/add', methods=['POST'])
 @login_required
+@api_response
 def api_add_to_cart():
     try:
         data = request.json
         if not data:
-            return jsonify({'success': False, 'message': 'Отсутствуют данные'}), 400
+            return {'success': False, 'message': 'Отсутствуют данные'}, 400
         
         product_id = data.get('product_id')
         quantity = data.get('quantity', 1)
@@ -1259,18 +1412,18 @@ def api_add_to_cart():
         color = data.get('color')
         
         if not product_id:
-            return jsonify({'success': False, 'message': 'Не указан ID товара'}), 400
+            return {'success': False, 'message': 'Не указан ID товара'}, 400
         
         product = Product.query.get(product_id)
         if not product:
-            return jsonify({'success': False, 'message': 'Товар не найден'}), 404
+            return {'success': False, 'message': 'Товар не найден'}, 404
         
         if not product.is_active:
-            return jsonify({'success': False, 'message': 'Товар временно недоступен'}), 400
+            return {'success': False, 'message': 'Товар временно недоступен'}, 400
         
         # Проверяем наличие
         if product.stock < quantity:
-            return jsonify({'success': False, 'message': 'Недостаточно товара на складе'}), 400
+            return {'success': False, 'message': 'Недостаточно товара на складе'}, 400
         
         # Проверяем, есть ли уже в корзине
         existing_item = Cart.query.filter_by(
@@ -1283,7 +1436,7 @@ def api_add_to_cart():
         if existing_item:
             new_quantity = existing_item.quantity + quantity
             if product.stock < new_quantity:
-                return jsonify({'success': False, 'message': 'Недостаточно товара на складе для добавления указанного количества'}), 400
+                return {'success': False, 'message': 'Недостаточно товара на складе для добавления указанного количества'}, 400
             existing_item.quantity = new_quantity
             existing_item.added_at = datetime.utcnow()
         else:
@@ -1304,43 +1457,44 @@ def api_add_to_cart():
         cart_items = Cart.query.filter_by(user_id=current_user.id).all()
         cart_total = sum(item.product.price * item.quantity for item in cart_items if item.product)
         
-        return jsonify({
+        return {
             'success': True,
             'message': 'Товар добавлен в корзину',
             'cart_count': cart_count,
             'cart_total': cart_total,
             'product_name': product.name,
             'product_price': product.price
-        })
+        }
     except Exception as e:
         logger.error(f"Ошибка добавления в корзину: {e}")
         db.session.rollback()
-        return jsonify({'success': False, 'message': 'Произошла ошибка при добавлении в корзину'}), 500
+        return {'success': False, 'message': 'Произошла ошибка при добавлении в корзину'}, 500
 
 # API для обновления корзины
 @app.route('/api/cart/update', methods=['POST'])
 @login_required
+@api_response
 def api_update_cart():
     try:
         data = request.json
         if not data:
-            return jsonify({'success': False, 'message': 'Отсутствуют данные'}), 400
+            return {'success': False, 'message': 'Отсутствуют данные'}, 400
         
         cart_item_id = data.get('cart_item_id')
         quantity = data.get('quantity')
         
         if not cart_item_id or quantity is None:
-            return jsonify({'success': False, 'message': 'Не указаны необходимые данные'}), 400
+            return {'success': False, 'message': 'Не указаны необходимые данные'}, 400
         
         cart_item = Cart.query.get(cart_item_id)
         if not cart_item or cart_item.user_id != current_user.id:
-            return jsonify({'success': False, 'message': 'Элемент корзины не найден'}), 404
+            return {'success': False, 'message': 'Элемент корзины не найден'}, 404
         
         if quantity <= 0:
             db.session.delete(cart_item)
         else:
             if cart_item.product.stock < quantity:
-                return jsonify({'success': False, 'message': 'Недостаточно товара на складе'}), 400
+                return {'success': False, 'message': 'Недостаточно товара на складе'}, 400
             cart_item.quantity = quantity
         
         db.session.commit()
@@ -1351,27 +1505,28 @@ def api_update_cart():
         delivery_cost = 0 if total >= FREE_DELIVERY_THRESHOLD else DELIVERY_COST
         final_amount = total + delivery_cost
         
-        return jsonify({
+        return {
             'success': True,
             'message': 'Корзина обновлена',
             'total': total,
             'delivery_cost': delivery_cost,
             'final_amount': final_amount,
             'cart_count': len(cart_items)
-        })
+        }
     except Exception as e:
         logger.error(f"Ошибка обновления корзины: {e}")
         db.session.rollback()
-        return jsonify({'success': False, 'message': 'Произошла ошибка при обновлении корзины'}), 500
+        return {'success': False, 'message': 'Произошла ошибка при обновлении корзины'}, 500
 
 # API для удаления из корзины
 @app.route('/api/cart/remove/<int:cart_item_id>', methods=['DELETE'])
 @login_required
+@api_response
 def api_remove_from_cart(cart_item_id):
     try:
         cart_item = Cart.query.get(cart_item_id)
         if not cart_item or cart_item.user_id != current_user.id:
-            return jsonify({'success': False, 'message': 'Элемент корзины не найден'}), 404
+            return {'success': False, 'message': 'Элемент корзины не найден'}, 404
         
         db.session.delete(cart_item)
         db.session.commit()
@@ -1381,31 +1536,895 @@ def api_remove_from_cart(cart_item_id):
         total = sum(item.product.price * item.quantity for item in cart_items if item.product)
         cart_count = len(cart_items)
         
-        return jsonify({
+        return {
             'success': True,
             'message': 'Товар удален из корзины',
             'total': total,
             'cart_count': cart_count
-        })
+        }
     except Exception as e:
         logger.error(f"Ошибка удаления из корзины: {e}")
         db.session.rollback()
-        return jsonify({'success': False, 'message': 'Произошла ошибка при удалении из корзины'}), 500
+        return {'success': False, 'message': 'Произошла ошибка при удалении из корзины'}, 500
+
+# API для синхронизации корзины
+@app.route('/api/cart/sync', methods=['GET', 'POST'])
+@login_required
+@api_response
+def api_cart_sync_handler():
+    """API для синхронизации корзины с сервером"""
+    try:
+        if request.method == 'GET':
+            # Получение текущей корзины
+            cart_items = Cart.query.filter_by(user_id=current_user.id).all()
+            cart_data = []
+            
+            for item in cart_items:
+                if item.product:
+                    cart_data.append({
+                        'id': item.id,
+                        'product_id': item.product_id,
+                        'product_name': item.product.name,
+                        'product_article': item.product.article,
+                        'quantity': item.quantity,
+                        'price': item.product.price,
+                        'selected_size': item.selected_size,
+                        'selected_color': item.selected_color,
+                        'image_url': item.product.image_url or '/static/img/placeholder.jpg',
+                        'stock': item.product.stock,
+                        'is_available': item.product.is_active and item.product.stock >= item.quantity
+                    })
+            
+            return {
+                'success': True,
+                'cart_items': cart_data,
+                'count': len(cart_data),
+                'user_id': current_user.id
+            }
+            
+        elif request.method == 'POST':
+            # Синхронизация корзины
+            data = request.json or {}
+            items = data.get('items', [])
+            
+            if not items:
+                return {'success': False, 'message': 'Нет данных для синхронизации'}, 400
+            
+            # Очищаем текущую корзину пользователя
+            Cart.query.filter_by(user_id=current_user.id).delete()
+            
+            # Добавляем товары из запроса
+            for item_data in items:
+                product_id = item_data.get('product_id')
+                quantity = item_data.get('quantity', 1)
+                
+                product = Product.query.get(product_id)
+                if product and product.is_active:
+                    cart_item = Cart(
+                        user_id=current_user.id,
+                        product_id=product_id,
+                        quantity=quantity,
+                        selected_size=item_data.get('size'),
+                        selected_color=item_data.get('color'),
+                        price_at_addition=product.price
+                    )
+                    db.session.add(cart_item)
+            
+            db.session.commit()
+            
+            # Получаем обновленную корзину
+            cart_items = Cart.query.filter_by(user_id=current_user.id).all()
+            cart_data = []
+            
+            for item in cart_items:
+                if item.product:
+                    cart_data.append({
+                        'id': item.id,
+                        'product_id': item.product_id,
+                        'name': item.product.name,
+                        'quantity': item.quantity,
+                        'price': item.product.price,
+                        'image_url': item.product.image_url or '/static/img/placeholder.jpg',
+                        'selected_size': item.selected_size,
+                        'selected_color': item.selected_color
+                    })
+            
+            return {
+                'success': True,
+                'message': 'Корзина синхронизирована',
+                'cart': cart_data,
+                'count': len(cart_data)
+            }
+            
+    except Exception as e:
+        logger.error(f"Ошибка синхронизации корзины: {e}")
+        db.session.rollback()
+        return {
+            'success': False,
+            'message': 'Ошибка синхронизации корзины'
+        }, 500
+
+# API для получения корзины
+@app.route('/api/cart', methods=['GET'])
+@api_response
+def api_get_cart():
+    """API для получения корзины"""
+    try:
+        cart_items = []
+        cart_count = 0
+        cart_total = 0
+        
+        # Если пользователь авторизован - получаем из базы
+        if current_user.is_authenticated:
+            cart_items_query = Cart.query.filter_by(user_id=current_user.id).all()
+            cart_count = len(cart_items_query)
+            cart_total = sum(item.product.price * item.quantity for item in cart_items_query if item.product)
+            
+            # Формируем данные корзины
+            for item in cart_items_query:
+                if item.product:
+                    cart_items.append({
+                        'id': item.id,
+                        'product_id': item.product_id,
+                        'name': item.product.name,
+                        'quantity': item.quantity,
+                        'price': item.product.price,
+                        'image_url': item.product.image_url or '/static/img/placeholder.jpg',
+                        'size': item.selected_size,
+                        'color': item.selected_color,
+                        'stock': item.product.stock,
+                        'is_available': item.product.is_active and item.product.stock >= item.quantity
+                    })
+        
+        return {
+            'success': True,
+            'cart': cart_items,
+            'count': cart_count,
+            'total': cart_total,
+            'is_authenticated': current_user.is_authenticated
+        }
+    except Exception as e:
+        logger.error(f"Ошибка API cart: {e}")
+        return {
+            'success': False, 
+            'message': 'Ошибка получения корзины', 
+            'cart': [], 
+            'count': 0, 
+            'total': 0
+        }, 500
+
+# API для работы с избранным
+@app.route('/api/wishlist', methods=['GET', 'POST'])
+@login_required
+@api_response
+def api_wishlist_handler():
+    """API для работы с избранным"""
+    try:
+        if request.method == 'GET':
+            # Получаем избранное пользователя
+            wishlist_items = Wishlist.query.filter_by(user_id=current_user.id).all()
+            wishlist_data = []
+            
+            for item in wishlist_items:
+                if item.product:
+                    wishlist_data.append({
+                        'id': item.id,
+                        'product_id': item.product_id,
+                        'product_name': item.product.name,
+                        'product_price': item.product.price,
+                        'product_image': item.product.image_url or '/static/img/placeholder.jpg',
+                        'product_category': item.product.category,
+                        'added_at': item.added_at.isoformat() if item.added_at else None
+                    })
+            
+            return {
+                'success': True,
+                'wishlist': wishlist_data,
+                'count': len(wishlist_data)
+            }
+            
+        elif request.method == 'POST':
+            # Добавление/удаление из избранного
+            data = request.get_json(silent=True) or {}
+            action = data.get('action', 'sync')
+            
+            if action == 'add':
+                product_id = data.get('product_id')
+                if not product_id:
+                    return {'success': False, 'message': 'Не указан product_id'}, 400
+                
+                # Проверяем, есть ли уже в избранном
+                existing = Wishlist.query.filter_by(
+                    user_id=current_user.id,
+                    product_id=product_id
+                ).first()
+                
+                if not existing:
+                    wishlist_item = Wishlist(
+                        user_id=current_user.id,
+                        product_id=product_id
+                    )
+                    db.session.add(wishlist_item)
+                    db.session.commit()
+                
+                return {
+                    'success': True,
+                    'message': 'Товар добавлен в избранное'
+                }
+                
+            elif action == 'remove':
+                product_id = data.get('product_id')
+                if product_id:
+                    Wishlist.query.filter_by(
+                        user_id=current_user.id,
+                        product_id=product_id
+                    ).delete()
+                    db.session.commit()
+                
+                return {
+                    'success': True,
+                    'message': 'Товар удален из избранного'
+                }
+                
+            else:  # sync
+                wishlist = data.get('wishlist', [])
+                logger.info(f"Wishlist sync for user {current_user.id}: {len(wishlist)} items")
+                
+                # Синхронизируем с базой данных
+                current_wishlist = Wishlist.query.filter_by(user_id=current_user.id).all()
+                current_product_ids = [item.product_id for item in current_wishlist]
+                
+                # Добавляем новые
+                for product_id in wishlist:
+                    if product_id not in current_product_ids:
+                        wishlist_item = Wishlist(
+                            user_id=current_user.id,
+                            product_id=product_id
+                        )
+                        db.session.add(wishlist_item)
+                
+                db.session.commit()
+                
+                return {
+                    'success': True,
+                    'message': 'Избранное синхронизировано',
+                    'count': len(wishlist)
+                }
+            
+    except Exception as e:
+        logger.error(f"Ошибка API wishlist: {e}")
+        db.session.rollback()
+        return {
+            'success': False,
+            'message': 'Ошибка работы с избранным'
+        }, 500
+
+# API для работы со списком сравнения
+@app.route('/api/compare', methods=['GET', 'POST'])
+@login_required
+@api_response
+def api_compare_handler():
+    """API для работы со списком сравнения"""
+    try:
+        if request.method == 'GET':
+            # Получаем список сравнения
+            compare_items = CompareList.query.filter_by(user_id=current_user.id).all()
+            compare_data = []
+            
+            for item in compare_items:
+                if item.product:
+                    compare_data.append({
+                        'id': item.id,
+                        'product_id': item.product_id,
+                        'product_name': item.product.name,
+                        'product_price': item.product.price,
+                        'product_image': item.product.image_url or '/static/img/placeholder.jpg',
+                        'product_category': item.product.category,
+                        'added_at': item.added_at.isoformat() if item.added_at else None
+                    })
+            
+            return {
+                'success': True,
+                'compare': compare_data,
+                'count': len(compare_data)
+            }
+            
+        elif request.method == 'POST':
+            # Добавление/удаление из списка сравнения
+            data = request.get_json(silent=True) or {}
+            action = data.get('action', 'sync')
+            
+            if action == 'add':
+                product_id = data.get('product_id')
+                if not product_id:
+                    return {'success': False, 'message': 'Не указан product_id'}, 400
+                
+                # Проверяем, есть ли уже в сравнении
+                existing = CompareList.query.filter_by(
+                    user_id=current_user.id,
+                    product_id=product_id
+                ).first()
+                
+                if not existing:
+                    compare_item = CompareList(
+                        user_id=current_user.id,
+                        product_id=product_id
+                    )
+                    db.session.add(compare_item)
+                    db.session.commit()
+                
+                return {
+                    'success': True,
+                    'message': 'Товар добавлен в сравнение'
+                }
+                
+            elif action == 'remove':
+                product_id = data.get('product_id')
+                if product_id:
+                    CompareList.query.filter_by(
+                        user_id=current_user.id,
+                        product_id=product_id
+                    ).delete()
+                    db.session.commit()
+                
+                return {
+                    'success': True,
+                    'message': 'Товар удален из сравнения'
+                }
+                
+            else:  # sync
+                compare_list = data.get('compare', [])
+                logger.info(f"Compare list sync for user {current_user.id}: {len(compare_list)} items")
+                
+                # Синхронизируем с базой данных
+                current_compare = CompareList.query.filter_by(user_id=current_user.id).all()
+                current_product_ids = [item.product_id for item in current_compare]
+                
+                # Добавляем новые
+                for product_id in compare_list:
+                    if product_id not in current_product_ids:
+                        compare_item = CompareList(
+                            user_id=current_user.id,
+                            product_id=product_id
+                        )
+                        db.session.add(compare_item)
+                
+                db.session.commit()
+                
+                return {
+                    'success': True,
+                    'message': 'Список сравнения синхронизирован',
+                    'count': len(compare_list)
+                }
+            
+    except Exception as e:
+        logger.error(f"Ошибка API compare: {e}")
+        db.session.rollback()
+        return {
+            'success': False,
+            'message': 'Ошибка работы со списком сравнения'
+        }, 500
+
+# API для получения непрочитанных уведомлений
+@app.route('/api/notifications/unread', methods=['GET'])
+@login_required
+@api_response
+def api_get_unread_notifications():
+    """API для получения непрочитанных уведомлений"""
+    try:
+        notifications = Notification.query.filter_by(
+            user_id=current_user.id,
+            is_read=False
+        ).order_by(Notification.created_at.desc()).limit(10).all()
+        
+        notifications_data = []
+        for notification in notifications:
+            notifications_data.append({
+                'id': notification.id,
+                'title': notification.title,
+                'message': notification.message,
+                'type': notification.type,
+                'created_at': notification.created_at.isoformat() if notification.created_at else None
+            })
+        
+        return {
+            'success': True,
+            'notifications': notifications_data,
+            'count': len(notifications_data)
+        }
+    except Exception as e:
+        logger.error(f"Ошибка API notifications: {e}")
+        return {
+            'success': False,
+            'message': 'Ошибка получения уведомлений',
+            'notifications': []
+        }, 500
+
+# API для проверки авторизации
+@app.route('/api/auth/check', methods=['GET'])
+@api_response
+def api_auth_check():
+    """API для проверки авторизации"""
+    try:
+        if current_user.is_authenticated:
+            user_data = {
+                'id': current_user.id,
+                'telegram_id': current_user.telegram_id,
+                'username': current_user.username,
+                'first_name': current_user.first_name,
+                'last_name': current_user.last_name,
+                'email': current_user.email,
+                'phone': current_user.phone,
+                'is_admin': current_user.is_admin,
+                'is_vip': current_user.is_vip,
+                'total_orders': current_user.total_orders,
+                'total_spent': current_user.total_spent,
+                'referral_code': current_user.referral_code,
+                'notification_enabled': current_user.notification_enabled,
+                'avatar_url': f'/static/img/users/{current_user.id}.jpg' if os.path.exists(f'static/img/users/{current_user.id}.jpg') else '/static/img/users/default.jpg'
+            }
+            return {
+                'success': True,
+                'user': user_data,
+                'is_authenticated': True
+            }
+        else:
+            return {
+                'success': True,
+                'user': None,
+                'is_authenticated': False
+            }
+    except Exception as e:
+        logger.error(f"Ошибка API auth/check: {e}")
+        return {
+            'success': False,
+            'message': 'Ошибка проверки авторизации',
+            'user': None,
+            'is_authenticated': False
+        }, 500
+
+# API для входа
+@app.route('/api/auth/login', methods=['POST'])
+@api_response
+def api_login():
+    """API для входа"""
+    try:
+        data = request.get_json(silent=True) or {}
+        email = data.get('email')
+        password = data.get('password')
+        
+        if not email or not password:
+            return {
+                'success': False,
+                'message': 'Email и пароль обязательны'
+            }, 400
+        
+        user = User.query.filter_by(email=email).first()
+        
+        if user and user.check_password(password):
+            login_user(user, remember=True)
+            user.last_activity = datetime.utcnow()
+            db.session.commit()
+            
+            user_data = {
+                'id': user.id,
+                'email': user.email,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'is_vip': user.is_vip,
+                'is_admin': user.is_admin
+            }
+            
+            return {
+                'success': True,
+                'message': 'Вход выполнен успешно',
+                'user': user_data,
+                'redirect': url_for('index')
+            }
+        else:
+            return {
+                'success': False,
+                'message': 'Неверный email или пароль'
+            }, 401
+            
+    except Exception as e:
+        logger.error(f"Ошибка API login: {e}")
+        return {
+            'success': False,
+            'message': 'Ошибка входа'
+        }, 500
+
+# API для выхода
+@app.route('/api/auth/logout', methods=['POST'])
+@login_required
+@api_response
+def api_logout():
+    """API для выхода"""
+    try:
+        logout_user()
+        return {
+            'success': True,
+            'message': 'Выход выполнен успешно',
+            'redirect': url_for('index')
+        }
+    except Exception as e:
+        logger.error(f"Ошибка API logout: {e}")
+        return {
+            'success': False,
+            'message': 'Ошибка выхода'
+        }, 500
+
+# API для гостевого доступа
+@app.route('/api/auth/guest', methods=['GET'])
+@api_response
+def api_auth_guest():
+    """API для гостевого доступа"""
+    return {
+        'success': True,
+        'user': None,
+        'is_authenticated': False
+    }
+
+# API для трекинга аналитики
+@app.route('/api/analytics/track', methods=['POST'])
+@api_response
+def api_analytics_track():
+    """API для трекинга аналитики"""
+    try:
+        data = request.get_json(silent=True) or {}
+        
+        # Здесь можно сохранять данные аналитики в базу
+        event_type = data.get('event', 'unknown')
+        logger.info(f"Analytics tracked: {event_type}")
+        
+        return {'success': True}
+    except Exception as e:
+        logger.error(f"Ошибка API analytics: {e}")
+        return {'success': False}, 500
+
+# API для получения категорий
+@app.route('/api/categories', methods=['GET'])
+@api_response
+def api_get_categories():
+    """API для получения категорий товаров"""
+    try:
+        categories = db.session.query(
+            Product.category,
+            db.func.count(Product.id).label('count')
+        ).filter_by(is_active=True).group_by(Product.category).all()
+        
+        categories_data = []
+        for category, count in categories:
+            if category:  # Пропускаем пустые категории
+                categories_data.append({
+                    'name': category,
+                    'count': count,
+                    'url': url_for('catalog_page', category=category)
+                })
+        
+        return {
+            'success': True,
+            'categories': categories_data,
+            'total': len(categories_data)
+        }
+    except Exception as e:
+        logger.error(f"Ошибка получения категорий: {e}")
+        return {
+            'success': False,
+            'message': 'Ошибка получения категорий',
+            'categories': []
+        }, 500
+
+# API для получения брендов
+@app.route('/api/brands', methods=['GET'])
+@api_response
+def api_get_brands():
+    """API для получения брендов"""
+    try:
+        brands = db.session.query(
+            Product.brand,
+            db.func.count(Product.id).label('count')
+        ).filter(
+            Product.is_active == True,
+            Product.brand.isnot(None),
+            Product.brand != ''
+        ).group_by(Product.brand).all()
+        
+        brands_data = []
+        for brand, count in brands:
+            if brand:
+                brands_data.append({
+                    'name': brand,
+                    'count': count
+                })
+        
+        return {
+            'success': True,
+            'brands': brands_data,
+            'total': len(brands_data)
+        }
+    except Exception as e:
+        logger.error(f"Ошибка получения брендов: {e}")
+        return {
+            'success': False,
+            'message': 'Ошибка получения брендов',
+            'brands': []
+        }, 500
+
+# API для получения фильтров
+@app.route('/api/filters', methods=['GET'])
+@api_response
+def api_get_filters():
+    """API для получения доступных фильтров"""
+    try:
+        # Цены
+        min_price_result = db.session.query(db.func.min(Product.price)).filter_by(is_active=True).scalar()
+        max_price_result = db.session.query(db.func.max(Product.price)).filter_by(is_active=True).scalar()
+        
+        min_price = int(min_price_result) if min_price_result else 0
+        max_price = int(max_price_result) if max_price_result else 100000
+        
+        # Цвета
+        color_rows = db.session.query(Product.color).filter(
+            Product.is_active == True,
+            Product.color.isnot(None),
+            Product.color != ''
+        ).distinct().all()
+        
+        colors = []
+        for row in color_rows:
+            if row[0]:
+                color_list = [c.strip() for c in row[0].split(',') if c.strip()]
+                colors.extend(color_list)
+        
+        colors = list(set(colors))[:20]  # Уникальные цвета, максимум 20
+        
+        # Размеры
+        size_rows = db.session.query(Product.size).filter(
+            Product.is_active == True,
+            Product.size.isnot(None),
+            Product.size != ''
+        ).distinct().all()
+        
+        sizes = []
+        for row in size_rows:
+            if row[0]:
+                size_list = [s.strip() for s in row[0].split(',') if s.strip()]
+                sizes.extend(size_list)
+        
+        sizes = list(set(sizes))
+        
+        return {
+            'success': True,
+            'filters': {
+                'price': {
+                    'min': min_price,
+                    'max': max_price
+                },
+                'colors': colors,
+                'sizes': sizes
+            }
+        }
+    except Exception as e:
+        logger.error(f"Ошибка получения фильтров: {e}")
+        return {
+            'success': False,
+            'message': 'Ошибка получения фильтров'
+        }, 500
+
+# API для поиска товаров
+@app.route('/api/search', methods=['GET'])
+@api_response
+def api_search():
+    """API для поиска товаров"""
+    try:
+        query = request.args.get('q', '')
+        limit = request.args.get('limit', 10, type=int)
+        
+        if not query:
+            return {
+                'success': True,
+                'results': [],
+                'count': 0
+            }
+        
+        # Поиск товаров
+        search_query = f"%{query}%"
+        products = Product.query.filter(
+            Product.is_active == True,
+            (Product.name.ilike(search_query)) |
+            (Product.description.ilike(search_query)) |
+            (Product.category.ilike(search_query)) |
+            (Product.brand.ilike(search_query))
+        ).limit(limit).all()
+        
+        results = []
+        for product in products:
+            results.append({
+                'id': product.id,
+                'name': product.name,
+                'category': product.category,
+                'price': product.price,
+                'discount': product.discount,
+                'image_url': product.image_url or '/static/img/placeholder.jpg',
+                'url': url_for('product_detail', product_id=product.id)
+            })
+        
+        return {
+            'success': True,
+            'results': results,
+            'count': len(results),
+            'query': query
+        }
+    except Exception as e:
+        logger.error(f"Ошибка поиска: {e}")
+        return {
+            'success': False,
+            'message': 'Ошибка поиска',
+            'results': []
+        }, 500
+
+# API для проверки промокода
+@app.route('/api/promo/check', methods=['POST'])
+@api_response
+def api_check_promo_code():
+    try:
+        data = request.json
+        if not data:
+            return {'success': False, 'message': 'Отсутствуют данные'}, 400
+        
+        code = data.get('code')
+        order_amount = data.get('order_amount', 0)
+        
+        if not code:
+            return {'success': False, 'message': 'Не указан промокод'}, 400
+        
+        promo = PromoCode.query.filter_by(code=code, is_active=True).first()
+        
+        if not promo:
+            return {'success': False, 'message': 'Промокод не найден'}, 404
+        
+        if not promo.is_valid(order_amount):
+            return {
+                'success': False,
+                'message': 'Промокод недействителен или условия не выполнены'
+            }, 400
+        
+        discount_amount = promo.get_discount(order_amount)
+        new_amount = order_amount - discount_amount
+        
+        return {
+            'success': True,
+            'promo_code': promo.code,
+            'description': promo.description,
+            'discount_percent': promo.discount_percent,
+            'discount_amount': promo.discount_amount,
+            'calculated_discount': discount_amount,
+            'min_order_amount': promo.min_order_amount,
+            'new_total': new_amount
+        }
+        
+    except Exception as e:
+        logger.error(f"Ошибка проверки промокода: {e}")
+        return {'success': False, 'message': 'Ошибка проверки промокода'}, 500
+
+# API для получения пользователя по telegram_id
+@app.route('/api/user/telegram/<int:telegram_id>', methods=['GET'])
+@api_response
+def api_get_user_by_telegram(telegram_id):
+    try:
+        user = User.query.filter_by(telegram_id=telegram_id).first()
+        
+        if user:
+            user_data = {
+                'id': user.id,
+                'telegram_id': user.telegram_id,
+                'username': user.username,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'email': user.email,
+                'phone': user.phone,
+                'is_admin': user.is_admin,
+                'is_vip': user.is_vip,
+                'total_orders': user.total_orders,
+                'total_spent': user.total_spent,
+                'referral_code': user.referral_code,
+                'notification_enabled': user.notification_enabled,
+                'created_at': user.created_at.isoformat() if user.created_at else None,
+                'last_activity': user.last_activity.isoformat() if user.last_activity else None
+            }
+            return {'success': True, 'user': user_data}
+        else:
+            return {'success': False, 'message': 'Пользователь не найден'}, 404
+            
+    except Exception as e:
+        logger.error(f"Ошибка получения пользователя по telegram_id: {e}")
+        return {'success': False, 'message': 'Ошибка сервера'}, 500
+
+# API для создания пользователя из Telegram
+@app.route('/api/user/telegram/create', methods=['POST'])
+@api_response
+def api_create_user_from_telegram():
+    try:
+        data = request.json
+        if not data:
+            return {'success': False, 'message': 'Отсутствуют данные'}, 400
+        
+        telegram_id = data.get('telegram_id')
+        username = data.get('username')
+        first_name = data.get('first_name')
+        last_name = data.get('last_name')
+        
+        if not telegram_id or not first_name:
+            return {'success': False, 'message': 'Необходимы telegram_id и first_name'}, 400
+        
+        # Проверяем, существует ли пользователь
+        user = User.query.filter_by(telegram_id=telegram_id).first()
+        
+        if user:
+            # Обновляем данные
+            user.username = username
+            user.first_name = first_name
+            user.last_name = last_name
+            user.last_activity = datetime.utcnow()
+            db.session.commit()
+            
+            return {
+                'success': True,
+                'user_id': user.id,
+                'message': 'Пользователь обновлен',
+                'is_new': False
+            }
+        else:
+            # Создаем нового пользователя
+            referral_code = f"VIP{telegram_id:06d}"
+            
+            # Проверяем уникальность referral_code
+            while User.query.filter_by(referral_code=referral_code).first():
+                referral_code = f"VIP{random.randint(100000, 999999)}"
+            
+            user = User(
+                telegram_id=telegram_id,
+                username=username,
+                first_name=first_name,
+                last_name=last_name,
+                referral_code=referral_code,
+                notification_enabled=True,
+                created_at=datetime.utcnow(),
+                last_activity=datetime.utcnow()
+            )
+            
+            db.session.add(user)
+            db.session.commit()
+            
+            return {
+                'success': True,
+                'user_id': user.id,
+                'message': 'Пользователь создан',
+                'is_new': True,
+                'referral_code': referral_code
+            }
+            
+    except Exception as e:
+        logger.error(f"Ошибка создания пользователя из Telegram: {e}")
+        db.session.rollback()
+        return {'success': False, 'message': 'Ошибка сервера'}, 500
 
 # API для создания заказа
 @app.route('/api/order/create', methods=['POST'])
 @login_required
+@api_response
 def api_create_order():
     try:
         data = request.json
         if not data:
-            return jsonify({'success': False, 'message': 'Отсутствуют данные'}), 400
+            return {'success': False, 'message': 'Отсутствуют данные'}, 400
         
         # Получаем товары из корзины
         cart_items = Cart.query.filter_by(user_id=current_user.id).all()
         
         if not cart_items:
-            return jsonify({'success': False, 'message': 'Корзина пуста'}), 400
+            return {'success': False, 'message': 'Корзина пуста'}, 400
         
         # Проверяем наличие всех товаров
         unavailable_items = []
@@ -1414,11 +2433,11 @@ def api_create_order():
                 unavailable_items.append(item)
         
         if unavailable_items:
-            return jsonify({
+            return {
                 'success': False,
                 'message': 'Некоторые товары в корзине недоступны',
                 'unavailable_items': [item.product.name for item in unavailable_items if item.product]
-            }), 400
+            }, 400
         
         # Рассчитываем сумму
         total = sum(item.product.price * item.quantity for item in cart_items)
@@ -1434,7 +2453,7 @@ def api_create_order():
                 discount_amount = promo.get_discount(total)
                 promo.used_count += 1
             else:
-                return jsonify({'success': False, 'message': 'Промокод недействителен'}), 400
+                return {'success': False, 'message': 'Промокод недействителен'}, 400
         
         final_amount = total + delivery_cost - discount_amount
         
@@ -1492,7 +2511,7 @@ def api_create_order():
         db.session.add(order)
         db.session.commit()
         
-        return jsonify({
+        return {
             'success': True,
             'order_number': order_number,
             'message': 'Заказ успешно создан!',
@@ -1500,193 +2519,19 @@ def api_create_order():
             'final_amount': final_amount,
             'delivery_cost': delivery_cost,
             'discount_amount': discount_amount
-        })
+        }
     except Exception as e:
         logger.error(f"Ошибка создания заказа: {e}")
         db.session.rollback()
-        return jsonify({'success': False, 'message': 'Произошла ошибка при создании заказа'}), 500
-
-# API для получения пользователя по telegram_id
-@app.route('/api/user/telegram/<int:telegram_id>', methods=['GET'])
-def api_get_user_by_telegram(telegram_id):
-    try:
-        user = User.query.filter_by(telegram_id=telegram_id).first()
-        
-        if user:
-            user_data = {
-                'id': user.id,
-                'telegram_id': user.telegram_id,
-                'username': user.username,
-                'first_name': user.first_name,
-                'last_name': user.last_name,
-                'email': user.email,
-                'phone': user.phone,
-                'is_admin': user.is_admin,
-                'is_vip': user.is_vip,
-                'total_orders': user.total_orders,
-                'total_spent': user.total_spent,
-                'referral_code': user.referral_code,
-                'created_at': user.created_at.isoformat() if user.created_at else None,
-                'last_activity': user.last_activity.isoformat() if user.last_activity else None
-            }
-            return jsonify({'success': True, 'user': user_data})
-        else:
-            return jsonify({'success': False, 'message': 'Пользователь не найден'}), 404
-            
-    except Exception as e:
-        logger.error(f"Ошибка получения пользователя по telegram_id: {e}")
-        return jsonify({'success': False, 'message': 'Ошибка сервера'}), 500
-
-# API для создания пользователя из Telegram
-@app.route('/api/user/telegram/create', methods=['POST'])
-def api_create_user_from_telegram():
-    try:
-        data = request.json
-        if not data:
-            return jsonify({'success': False, 'message': 'Отсутствуют данные'}), 400
-        
-        telegram_id = data.get('telegram_id')
-        username = data.get('username')
-        first_name = data.get('first_name')
-        last_name = data.get('last_name')
-        
-        if not telegram_id or not first_name:
-            return jsonify({'success': False, 'message': 'Необходимы telegram_id и first_name'}), 400
-        
-        # Проверяем, существует ли пользователь
-        user = User.query.filter_by(telegram_id=telegram_id).first()
-        
-        if user:
-            # Обновляем данные
-            user.username = username
-            user.first_name = first_name
-            user.last_name = last_name
-            user.last_activity = datetime.utcnow()
-            db.session.commit()
-            
-            return jsonify({
-                'success': True,
-                'user_id': user.id,
-                'message': 'Пользователь обновлен',
-                'is_new': False
-            })
-        else:
-            # Создаем нового пользователя
-            referral_code = f"VIP{telegram_id:06d}"
-            
-            # Проверяем уникальность referral_code
-            while User.query.filter_by(referral_code=referral_code).first():
-                referral_code = f"VIP{random.randint(100000, 999999)}"
-            
-            user = User(
-                telegram_id=telegram_id,
-                username=username,
-                first_name=first_name,
-                last_name=last_name,
-                referral_code=referral_code,
-                created_at=datetime.utcnow(),
-                last_activity=datetime.utcnow()
-            )
-            
-            db.session.add(user)
-            db.session.commit()
-            
-            return jsonify({
-                'success': True,
-                'user_id': user.id,
-                'message': 'Пользователь создан',
-                'is_new': True,
-                'referral_code': referral_code
-            })
-            
-    except Exception as e:
-        logger.error(f"Ошибка создания пользователя из Telegram: {e}")
-        db.session.rollback()
-        return jsonify({'success': False, 'message': 'Ошибка сервера'}), 500
-
-# API для синхронизации корзины пользователя
-@app.route('/api/cart/sync/<int:user_id>', methods=['GET'])
-def api_sync_user_cart(user_id):
-    try:
-        cart_items = Cart.query.filter_by(user_id=user_id).all()
-        
-        cart_data = []
-        for item in cart_items:
-            if item.product:
-                cart_data.append({
-                    'cart_item_id': item.id,
-                    'product_id': item.product_id,
-                    'product_name': item.product.name,
-                    'product_article': item.product.article,
-                    'quantity': item.quantity,
-                    'price': item.product.price,
-                    'selected_size': item.selected_size,
-                    'selected_color': item.selected_color,
-                    'image_url': item.product.image_url or '',
-                    'stock': item.product.stock,
-                    'is_available': item.product.is_active and item.product.stock >= item.quantity
-                })
-        
-        return jsonify({
-            'success': True,
-            'cart_items': cart_data,
-            'count': len(cart_data),
-            'user_id': user_id
-        })
-        
-    except Exception as e:
-        logger.error(f"Ошибка синхронизации корзины: {e}")
-        return jsonify({'success': False, 'message': 'Ошибка синхронизации'}), 500
-
-# API для проверки промокода
-@app.route('/api/promo/check', methods=['POST'])
-def api_check_promo_code():
-    try:
-        data = request.json
-        if not data:
-            return jsonify({'success': False, 'message': 'Отсутствуют данные'}), 400
-        
-        code = data.get('code')
-        order_amount = data.get('order_amount', 0)
-        
-        if not code:
-            return jsonify({'success': False, 'message': 'Не указан промокод'}), 400
-        
-        promo = PromoCode.query.filter_by(code=code, is_active=True).first()
-        
-        if not promo:
-            return jsonify({'success': False, 'message': 'Промокод не найден'}), 404
-        
-        if not promo.is_valid(order_amount):
-            return jsonify({
-                'success': False,
-                'message': 'Промокод недействителен или условия не выполнены'
-            }), 400
-        
-        discount_amount = promo.get_discount(order_amount)
-        new_amount = order_amount - discount_amount
-        
-        return jsonify({
-            'success': True,
-            'promo_code': promo.code,
-            'description': promo.description,
-            'discount_percent': promo.discount_percent,
-            'discount_amount': promo.discount_amount,
-            'calculated_discount': discount_amount,
-            'min_order_amount': promo.min_order_amount,
-            'new_total': new_amount
-        })
-        
-    except Exception as e:
-        logger.error(f"Ошибка проверки промокода: {e}")
-        return jsonify({'success': False, 'message': 'Ошибка проверки промокода'}), 500
+        return {'success': False, 'message': 'Произошла ошибка при создании заказа'}, 500
 
 # API для получения статистики магазина
 @app.route('/api/stats')
 @login_required
+@api_response
 def api_stats():
     if not current_user.is_admin:
-        return jsonify({'success': False, 'message': 'Доступ запрещен'}), 403
+        return {'success': False, 'message': 'Доступ запрещен'}, 403
     
     try:
         # Общая статистика
@@ -1731,7 +2576,7 @@ def api_stats():
                 'is_new': product.is_new
             })
         
-        return jsonify({
+        return {
             'success': True,
             'stats': {
                 'total_users': total_users,
@@ -1744,54 +2589,67 @@ def api_stats():
                 'category_stats': category_stats,
                 'top_products': top_products_data
             }
-        })
+        }
         
     except Exception as e:
         logger.error(f"Ошибка получения статистики: {e}")
-        return jsonify({'success': False, 'message': 'Ошибка получения статистики'}), 500
+        return {'success': False, 'message': 'Ошибка получения статистики'}, 500
 
 # API для рассылки уведомлений
 @app.route('/api/notify', methods=['POST'])
 @login_required
+@api_response
 def api_send_notification():
     if not current_user.is_admin:
-        return jsonify({'success': False, 'message': 'Доступ запрещен'}), 403
+        return {'success': False, 'message': 'Доступ запрещен'}, 403
     
     try:
         data = request.json
         if not data:
-            return jsonify({'success': False, 'message': 'Отсутствуют данные'}), 400
+            return {'success': False, 'message': 'Отсутствуют данные'}, 400
         
         message = data.get('message')
         target = data.get('target', 'all')  # all, vip, new
         
         if not message:
-            return jsonify({'success': False, 'message': 'Не указано сообщение'}), 400
+            return {'success': False, 'message': 'Не указано сообщение'}, 400
         
         # Получаем пользователей для рассылки
         if target == 'vip':
-            users = User.query.filter_by(is_vip=True, notifications_enabled=True).all()
+            users = User.query.filter_by(is_vip=True, notification_enabled=True).all()
         elif target == 'new':
             thirty_days_ago = datetime.utcnow() - timedelta(days=30)
             users = User.query.filter(
                 User.created_at >= thirty_days_ago,
-                User.notifications_enabled == True
+                User.notification_enabled == True
             ).all()
         else:  # all
-            users = User.query.filter_by(notifications_enabled=True).all()
+            users = User.query.filter_by(notification_enabled=True).all()
         
-        # Здесь должна быть логика отправки уведомлений
-        # Например, через email, SMS или Telegram
+        # Создаем уведомления для каждого пользователя
+        for user in users:
+            notification = Notification(
+                user_id=user.id,
+                title='Сообщение от администратора',
+                message=message,
+                type='info'
+            )
+            db.session.add(notification)
         
-        return jsonify({
+        db.session.commit()
+        
+        return {
             'success': True,
             'message': f'Уведомление отправлено {len(users)} пользователям',
             'recipients_count': len(users)
-        })
+        }
         
     except Exception as e:
         logger.error(f"Ошибка отправки уведомления: {e}")
-        return jsonify({'success': False, 'message': 'Ошибка отправки уведомления'}), 500
+        db.session.rollback()
+        return {'success': False, 'message': 'Ошибка отправки уведомления'}, 500
+
+# ==================== СТАНДАРТНЫЕ МАРШРУТЫ ====================
 
 # Вход в систему
 @app.route('/login', methods=['GET', 'POST'])
@@ -1883,6 +2741,7 @@ def register():
             email=email,
             phone=phone,
             referral_code=referral_code,
+            notification_enabled=True,
             created_at=datetime.utcnow(),
             last_activity=datetime.utcnow()
         )
@@ -1905,6 +2764,60 @@ def logout():
     flash('Вы успешно вышли из системы', 'success')
     return redirect(url_for('index'))
 
+# Избранное
+@app.route('/wishlist')
+@login_required
+def wishlist_page():
+    try:
+        wishlist_items = Wishlist.query.filter_by(user_id=current_user.id).all()
+        products = [item.product for item in wishlist_items if item.product and item.product.is_active]
+        
+        return render_template('wishlist.html', products=products)
+    except Exception as e:
+        logger.error(f"Ошибка загрузки избранного: {e}")
+        flash('Произошла ошибка при загрузке избранного', 'error')
+        return redirect(url_for('index'))
+
+# Сравнение
+@app.route('/compare')
+@login_required
+def compare_page():
+    try:
+        compare_items = CompareList.query.filter_by(user_id=current_user.id).all()
+        products = [item.product for item in compare_items if item.product and item.product.is_active]
+        
+        # Ограничиваем количество товаров для сравнения
+        if len(products) > 4:
+            products = products[:4]
+            flash('Для сравнения отображается максимум 4 товара', 'info')
+        
+        return render_template('compare.html', products=products)
+    except Exception as e:
+        logger.error(f"Ошибка загрузки сравнения: {e}")
+        flash('Произошла ошибка при загрузке сравнения', 'error')
+        return redirect(url_for('index'))
+
+# Уведомления
+@app.route('/notifications')
+@login_required
+def notifications_page():
+    try:
+        notifications = Notification.query.filter_by(user_id=current_user.id)\
+            .order_by(Notification.created_at.desc()).all()
+        
+        # Помечаем все как прочитанные
+        for notification in notifications:
+            if not notification.is_read:
+                notification.is_read = True
+        
+        db.session.commit()
+        
+        return render_template('notifications.html', notifications=notifications)
+    except Exception as e:
+        logger.error(f"Ошибка загрузки уведомлений: {e}")
+        flash('Произошла ошибка при загрузке уведомлений', 'error')
+        return redirect(url_for('index'))
+
 # Страница 404
 @app.errorhandler(404)
 def page_not_found(e):
@@ -1924,6 +2837,7 @@ def internal_server_error(e):
 
 # Health check
 @app.route('/health')
+@api_response
 def health_check():
     try:
         # Проверяем соединение с базой данных
@@ -1937,30 +2851,31 @@ def health_check():
             except:
                 tables_ok = False
         
-        return jsonify({
+        return {
             'status': 'healthy' if tables_ok else 'degraded',
             'database': 'connected',
             'tables': tables_ok,
             'timestamp': datetime.utcnow().isoformat(),
             'version': '1.0.0'
-        })
+        }
     except Exception as e:
         logger.error(f"Health check failed: {e}")
-        return jsonify({
+        return {
             'status': 'unhealthy',
             'database': 'disconnected',
             'error': str(e)
-        }), 500
+        }, 500
 
 # API для тестирования
 @app.route('/api/test')
+@api_response
 def api_test():
-    return jsonify({
+    return {
         'success': True,
         'message': 'API работает корректно',
         'timestamp': datetime.utcnow().isoformat(),
         'shop_name': SHOP_NAME
-    })
+    }
 
 # Статические файлы
 @app.route('/static/<path:filename>')
@@ -1994,12 +2909,11 @@ if __name__ == '__main__':
     """)
     
     # Создаем дополнительные тестовые данные, если нужно
-    if debug and Product.query.count() < 50:
-        from datetime import timedelta
-        try:
-            # Добавляем больше товаров для тестирования
-            extra_products = []
-            for i in range(11, 51):
+    with app.app_context():
+        if debug and Product.query.count() < 20:
+            try:
+                # Добавляем больше товаров для тестирования
+                extra_products = []
                 categories_list = [
                     Categories.DRESSES, Categories.SUITS, Categories.BLOUSES,
                     Categories.PANTS, Categories.SKIRTS, Categories.JACKETS,
@@ -2008,48 +2922,49 @@ if __name__ == '__main__':
                 ]
                 
                 brands_list = [
-                    Brands.GUCCI, Brands.CHANEL, Brands.DIOR, Brands.LOUIS_VUITTON,
+                    Brands.GUCCI, Brands.CHANEL, Brands.Dior, Brands.LOUIS_VUITTON,
                     Brands.HERMES, Brands.PRADA, Brands.VERSACE, Brands.ARMANI,
                     Brands.BURBERRY, Brands.BALENCIAGA, Brands.VOGUE_ELITE
                 ]
                 
-                category = random.choice(categories_list)
-                brand = random.choice(brands_list)
+                for i in range(11, 51):
+                    category = random.choice(categories_list)
+                    brand = random.choice(brands_list)
+                    
+                    # Определяем цену в зависимости от категории и бренда
+                    base_price = random.randint(50000, 500000)
+                    if brand in [Brands.HERMES, Brands.CHANEL]:
+                        base_price *= 3
+                    elif brand in [Brands.GUCCI, Brands.Dior, Brands.LOUIS_VUITTON]:
+                        base_price *= 2
+                    
+                    # Случайная скидка
+                    discount = random.choice([0, 0, 0, 5, 10, 15, 20])
+                    old_price = base_price * (1 + discount/100) if discount > 0 else None
+                    
+                    product = Product(
+                        article=f'VE{2024000 + i}',
+                        name=f'{brand} {category} Коллекция {i}',
+                        description=f'Эксклюзивный {category.lower()} от {brand}. Премиальное качество и дизайн.',
+                        price=base_price,
+                        old_price=old_price,
+                        discount=discount,
+                        category=category,
+                        brand=brand,
+                        image_url=f'/static/img/products/product-{(i % 10) + 1}.jpg',
+                        stock=random.randint(1, 20),
+                        is_new=random.choice([True, False]),
+                        is_hit=random.choice([True, False]),
+                        is_active=True,
+                        created_at=datetime.utcnow() - timedelta(days=random.randint(0, 365))
+                    )
+                    extra_products.append(product)
                 
-                # Определяем цену в зависимости от категории и бренда
-                base_price = random.randint(50000, 500000)
-                if brand in [Brands.HERMES, Brands.CHANEL]:
-                    base_price *= 3
-                elif brand in [Brands.GUCCI, Brands.DIOR, Brands.LOUIS_VUITTON]:
-                    base_price *= 2
-                
-                # Случайная скидка
-                discount = random.choice([0, 0, 0, 5, 10, 15, 20])
-                old_price = base_price * (1 + discount/100) if discount > 0 else None
-                
-                product = Product(
-                    article=f'VE{2024000 + i}',
-                    name=f'{brand} {category} Коллекция {i}',
-                    description=f'Эксклюзивный {category.lower()} от {brand}. Премиальное качество и дизайн.',
-                    price=base_price,
-                    old_price=old_price,
-                    discount=discount,
-                    category=category,
-                    brand=brand,
-                    image_url=f'https://images.unsplash.com/photo-{1500000000000 + i}?w=800&h=1200&fit=crop&q=80',
-                    stock=random.randint(1, 20),
-                    is_new=random.choice([True, False]),
-                    is_hit=random.choice([True, False]),
-                    is_active=True,
-                    created_at=datetime.utcnow() - timedelta(days=random.randint(0, 365))
-                )
-                extra_products.append(product)
-            
-            db.session.add_all(extra_products)
-            db.session.commit()
-            logger.info(f"Добавлено {len(extra_products)} тестовых товаров")
-        except Exception as e:
-            logger.error(f"Ошибка добавления тестовых товаров: {e}")
+                db.session.add_all(extra_products)
+                db.session.commit()
+                logger.info(f"Добавлено {len(extra_products)} тестовых товаров")
+            except Exception as e:
+                logger.error(f"Ошибка добавления тестовых товаров: {e}")
     
     # Запускаем приложение
     try:
