@@ -1,111 +1,29 @@
-# config.py - ИСПРАВЛЕННАЯ ВЕРСИЯ
+# config.py
 import os
-from dotenv import load_dotenv
+from datetime import timedelta
 
-load_dotenv()
-
+# Базовые настройки
 class Config:
-    # Telegram
-    BOT_TOKEN = os.getenv('BOT_TOKEN', '8445063044:AAGwsp4PGsSInBDYfAwVWeOq6FNEgZHqImc')
-    ADMIN_IDS = [int(os.getenv('ADMIN_ID', '1217487530'))]
-    
-    # Flask
-    SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key')
-    SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_URL', 'sqlite:///fashion_store.db')
+    SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-key-12345-secure-vogue-elite-premium'
+    SQLALCHEMY_DATABASE_URI = 'sqlite:///instance/fashion_store.db'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SESSION_TYPE = 'filesystem'
+    PERMANENT_SESSION_LIFETIME = timedelta(hours=1)
+    UPLOAD_FOLDER = 'static/uploads'
+    MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB
     
-    # Shop
+    # Настройки магазина
     SHOP_NAME = "VOGUE ÉLITE"
     SHOP_SLOGAN = "Искусство стиля"
     SHOP_PHONE = "+7 (495) 123-45-67"
     SHOP_EMAIL = "info@vogue-elite.ru"
-    DELIVERY_COST = 500
-    FREE_DELIVERY_THRESHOLD = 20000
     SUPPORT_USERNAME = "@Lexaa_161"
+    FREE_DELIVERY_THRESHOLD = 200000
+    DELIVERY_COST = 2000
+    CURRENCY = "₽"
     
-    # Web App URL (будет автоматически обновлен на Render)
-    @property
-    def WEB_APP_URL(self):
-        return os.getenv('RENDER_EXTERNAL_URL', 'http://localhost:8080')
-
-class Emoji:
-    # ========== ОСНОВНЫЕ ЭМОДЗИ ==========
-    LOGO = "✨"
-    STAR = "⭐"
-    VIP = "👑"
-    LOCK = "🔒"
-    CHECK = "✅"
-    CANCEL = "❌"
-    WARNING = "⚠️"
-    INFO = "ℹ️"
-    USER = "👤"
-    MONEY = "💰"
-    BOT = "🤖"
-    DATABASE = "🗄️"
-    GIFT = "🎁"
-    ATELIER = "✂️"
-    
-    # ========== КАТЕГОРИИ ==========
-    DRESS = "👗"
-    SUIT = "👔"
-    BLAZER = "🥼"
-    PANTS = "👖"
-    SKIRT = "👚"
-    OUTERWEAR = "🧥"
-    ACCESSORIES = "🧣"
-    SHOES = "👠"
-    BAG = "👜"
-    JEWELRY = "💍"
-    
-    # ========== ДЕЙСТВИЯ ==========
-    CART = "🛍️"
-    FAVORITE = "❤️"
-    ORDER = "📦"
-    DELIVERY = "🚚"
-    SIZE = "📏"
-    COLOR = "🎨"
-    CATEGORY = "🏷️"
-    ARTICLE = "🔖"
-    VIEW = "👁️"
-    
-    # ========== СТАТУСЫ ==========
-    NEW = "🆕"
-    EXCLUSIVE = "💎"
-    BESTSELLER = "🔥"
-    SALE = "🏷️"
-    
-    # ========== СЕРВИСЫ ==========
-    SUPPORT = "📞"
-    WEBSITE = "🌐"
-    PHONE = "📱"
-    CLOCK = "⏰"
-    MESSAGE = "💬"
-    LINK = "🔗"
-    
-    # ========== НАВИГАЦИЯ ==========
-    FILTER = "🔍"
-    NEXT = "➡️"
-    BACK = "⬅️"
-    SETTINGS = "⚙️"
-    
-    # ========== АДМИН ==========
-    ADMIN = "🛡️"
-    BROADCAST = "📢"
-    STATS = "📊"
-    USERS = "👥"
-    KEYBOARD = "⌨️"
-
-class Categories:
-    DRESSES = "Платья"
-    SUITS = "Костюмы"
-    BLOUSES = "Блузы"
-    PANTS = "Брюки"
-    SKIRTS = "Юбки"
-    JACKETS = "Куртки"
-    COATS = "Пальто"
-    ACCESSORIES = "Аксессуары"
-    SHOES = "Обувь"
-    BAGS = "Сумки"
-    JEWELRY = "Украшения"
-
-config = Config()
+    # Настройки API
+    API_PREFIX = '/api'
+    JSON_AS_ASCII = False
+    JSON_SORT_KEYS = False
+    JSONIFY_PRETTYPRINT_REGULAR = True
