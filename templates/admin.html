@@ -1,0 +1,3436 @@
+{% extends "base.html" %}
+
+{% block title %}Административная панель | {{ shop_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Admin Layout */
+    .admin-page {
+        display: flex;
+        min-height: 100vh;
+        background: var(--primary-bg);
+    }
+    
+    /* Admin Sidebar */
+    .admin-sidebar {
+        width: 280px;
+        background: var(--secondary-bg);
+        border-right: 1px solid var(--border-color);
+        position: fixed;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        z-index: 1000;
+        overflow-y: auto;
+        transition: all var(--transition-normal);
+    }
+    
+    .admin-sidebar.collapsed {
+        width: 80px;
+    }
+    
+    .sidebar-header {
+        padding: 30px 25px;
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    
+    .admin-logo {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+    
+    .admin-logo-icon {
+        width: 40px;
+        height: 40px;
+        background: linear-gradient(135deg, var(--gold) 0%, var(--rose-gold) 100%);
+        border-radius: var(--radius-lg);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+        color: var(--text-inverse);
+        font-weight: 700;
+    }
+    
+    .admin-logo-text {
+        font-size: 1.3rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        white-space: nowrap;
+        overflow: hidden;
+    }
+    
+    .admin-sidebar.collapsed .admin-logo-text {
+        display: none;
+    }
+    
+    .sidebar-toggle {
+        width: 36px;
+        height: 36px;
+        background: var(--surface-bg);
+        border-radius: var(--radius-md);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-secondary);
+        cursor: pointer;
+        transition: all var(--transition-fast);
+    }
+    
+    .sidebar-toggle:hover {
+        background: var(--tertiary-bg);
+        color: var(--text-primary);
+        transform: rotate(180deg);
+    }
+    
+    /* Sidebar Menu */
+    .sidebar-menu {
+        padding: 25px 0;
+    }
+    
+    .menu-section {
+        margin-bottom: 30px;
+    }
+    
+    .section-title {
+        padding: 0 25px 10px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--text-tertiary);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        white-space: nowrap;
+        overflow: hidden;
+    }
+    
+    .admin-sidebar.collapsed .section-title {
+        display: none;
+    }
+    
+    .menu-items {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+    
+    .menu-item {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        padding: 14px 25px;
+        color: var(--text-secondary);
+        text-decoration: none;
+        transition: all var(--transition-fast);
+        position: relative;
+        white-space: nowrap;
+        overflow: hidden;
+    }
+    
+    .menu-item:hover {
+        background: rgba(212, 175, 55, 0.05);
+        color: var(--text-primary);
+        padding-left: 30px;
+    }
+    
+    .menu-item.active {
+        background: linear-gradient(90deg, rgba(212, 175, 55, 0.1) 0%, rgba(212, 175, 55, 0) 100%);
+        color: var(--gold);
+        border-right: 3px solid var(--gold);
+    }
+    
+    .menu-icon {
+        width: 20px;
+        text-align: center;
+        font-size: 1.1rem;
+        flex-shrink: 0;
+    }
+    
+    .menu-label {
+        flex: 1;
+        font-weight: 500;
+        font-size: 0.95rem;
+    }
+    
+    .admin-sidebar.collapsed .menu-label {
+        display: none;
+    }
+    
+    .menu-badge {
+        padding: 4px 8px;
+        background: var(--gold);
+        color: var(--text-inverse);
+        border-radius: var(--radius-full);
+        font-size: 0.75rem;
+        font-weight: 600;
+        min-width: 20px;
+        text-align: center;
+    }
+    
+    /* Main Content */
+    .admin-content {
+        flex: 1;
+        margin-left: 280px;
+        transition: all var(--transition-normal);
+    }
+    
+    .admin-sidebar.collapsed ~ .admin-content {
+        margin-left: 80px;
+    }
+    
+    /* Top Bar */
+    .admin-topbar {
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        background: var(--card-bg);
+        border-bottom: 1px solid var(--border-color);
+        padding: 20px 30px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        box-shadow: var(--shadow-md);
+    }
+    
+    .topbar-left {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+    }
+    
+    .page-title {
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .breadcrumb {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 0.9rem;
+        color: var(--text-secondary);
+    }
+    
+    .breadcrumb-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .breadcrumb-item:not(:last-child)::after {
+        content: '/';
+        color: var(--text-tertiary);
+    }
+    
+    /* Topbar Right */
+    .topbar-right {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+    }
+    
+    .search-box {
+        position: relative;
+        width: 300px;
+    }
+    
+    .search-input {
+        width: 100%;
+        padding: 12px 45px 12px 16px;
+        background: var(--surface-bg);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-lg);
+        color: var(--text-primary);
+        font-size: 0.95rem;
+        transition: all var(--transition-fast);
+    }
+    
+    .search-input:focus {
+        border-color: var(--gold);
+        box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.2);
+    }
+    
+    .search-icon {
+        position: absolute;
+        right: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-tertiary);
+        cursor: pointer;
+    }
+    
+    .topbar-actions {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+    
+    .action-btn {
+        width: 44px;
+        height: 44px;
+        background: var(--surface-bg);
+        border-radius: var(--radius-md);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-secondary);
+        position: relative;
+        transition: all var(--transition-fast);
+    }
+    
+    .action-btn:hover {
+        background: var(--tertiary-bg);
+        color: var(--text-primary);
+        transform: translateY(-2px);
+    }
+    
+    .notification-badge {
+        position: absolute;
+        top: 5px;
+        right: 5px;
+        width: 8px;
+        height: 8px;
+        background: #ef4444;
+        border-radius: var(--radius-full);
+        border: 2px solid var(--card-bg);
+    }
+    
+    .admin-profile {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 8px 15px;
+        background: var(--surface-bg);
+        border-radius: var(--radius-lg);
+        cursor: pointer;
+        transition: all var(--transition-fast);
+    }
+    
+    .admin-profile:hover {
+        background: var(--tertiary-bg);
+    }
+    
+    .profile-avatar {
+        width: 36px;
+        height: 36px;
+        background: linear-gradient(135deg, var(--gold) 0%, var(--rose-gold) 100%);
+        border-radius: var(--radius-full);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+        color: var(--text-inverse);
+        font-weight: 600;
+    }
+    
+    .profile-info {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+    
+    .profile-name {
+        font-weight: 600;
+        color: var(--text-primary);
+        font-size: 0.95rem;
+    }
+    
+    .profile-role {
+        font-size: 0.8rem;
+        color: var(--text-tertiary);
+    }
+    
+    /* Content Area */
+    .content-wrapper {
+        padding: 30px;
+        min-height: calc(100vh - 88px);
+        background: var(--primary-bg);
+    }
+    
+    /* Dashboard Overview */
+    .dashboard-overview {
+        margin-bottom: 40px;
+    }
+    
+    .overview-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 25px;
+        margin-bottom: 30px;
+    }
+    
+    .stat-card {
+        background: var(--card-bg);
+        border-radius: var(--radius-xl);
+        padding: 30px;
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        transition: all var(--transition-fast);
+        border: 1px solid var(--border-color);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .stat-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, var(--gold) 0%, var(--rose-gold) 100%);
+    }
+    
+    .stat-card:hover {
+        border-color: var(--gold);
+        transform: translateY(-5px);
+        box-shadow: var(--shadow-gold);
+    }
+    
+    .stat-icon {
+        width: 60px;
+        height: 60px;
+        background: linear-gradient(135deg, var(--gold) 0%, var(--rose-gold) 100%);
+        border-radius: var(--radius-lg);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        color: var(--text-inverse);
+    }
+    
+    .stat-info {
+        flex: 1;
+    }
+    
+    .stat-title {
+        font-size: 0.9rem;
+        color: var(--text-tertiary);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 5px;
+    }
+    
+    .stat-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 5px;
+    }
+    
+    .stat-change {
+        font-size: 0.85rem;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+    
+    .change-up {
+        color: #10b981;
+    }
+    
+    .change-down {
+        color: #ef4444;
+    }
+    
+    /* Charts Section */
+    .charts-grid {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 25px;
+        margin-bottom: 40px;
+    }
+    
+    @media (max-width: 1200px) {
+        .charts-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+    
+    .chart-card {
+        background: var(--card-bg);
+        border-radius: var(--radius-xl);
+        padding: 30px;
+        border: 1px solid var(--border-color);
+    }
+    
+    .chart-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 25px;
+    }
+    
+    .chart-title {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: var(--text-primary);
+    }
+    
+    .chart-actions {
+        display: flex;
+        gap: 10px;
+    }
+    
+    .chart-placeholder {
+        height: 300px;
+        background: var(--surface-bg);
+        border-radius: var(--radius-lg);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-tertiary);
+        font-size: 1.1rem;
+    }
+    
+    /* Recent Activity */
+    .recent-activity {
+        background: var(--card-bg);
+        border-radius: var(--radius-xl);
+        padding: 30px;
+        border: 1px solid var(--border-color);
+    }
+    
+    .activity-list {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+    
+    .activity-item {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        padding: 15px;
+        background: var(--surface-bg);
+        border-radius: var(--radius-lg);
+        transition: all var(--transition-fast);
+    }
+    
+    .activity-item:hover {
+        background: var(--tertiary-bg);
+        transform: translateX(5px);
+    }
+    
+    .activity-icon {
+        width: 40px;
+        height: 40px;
+        background: var(--gold);
+        border-radius: var(--radius-full);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-inverse);
+        font-size: 1rem;
+    }
+    
+    .activity-content {
+        flex: 1;
+    }
+    
+    .activity-title {
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 5px;
+    }
+    
+    .activity-time {
+        font-size: 0.85rem;
+        color: var(--text-tertiary);
+    }
+    
+    /* Tables */
+    .data-table {
+        background: var(--card-bg);
+        border-radius: var(--radius-xl);
+        overflow: hidden;
+        border: 1px solid var(--border-color);
+    }
+    
+    .table-header {
+        padding: 25px 30px;
+        background: var(--surface-bg);
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .table-title {
+        font-size: 1.3rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .table-actions {
+        display: flex;
+        gap: 15px;
+    }
+    
+    .table-content {
+        overflow-x: auto;
+    }
+    
+    .table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 800px;
+    }
+    
+    .table th {
+        padding: 20px;
+        text-align: left;
+        font-weight: 600;
+        color: var(--text-primary);
+        border-bottom: 1px solid var(--border-color);
+        background: var(--surface-bg);
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .table td {
+        padding: 20px;
+        border-bottom: 1px solid var(--border-color);
+        color: var(--text-secondary);
+    }
+    
+    .table tr:hover {
+        background: rgba(212, 175, 55, 0.05);
+    }
+    
+    .table tr:last-child td {
+        border-bottom: none;
+    }
+    
+    /* Status Badges */
+    .status-badge {
+        padding: 8px 16px;
+        border-radius: var(--radius-full);
+        font-size: 0.85rem;
+        font-weight: 600;
+        display: inline-block;
+    }
+    
+    .status-active {
+        background: rgba(16, 185, 129, 0.1);
+        color: #10b981;
+    }
+    
+    .status-inactive {
+        background: rgba(148, 163, 184, 0.1);
+        color: #94a3b8;
+    }
+    
+    .status-pending {
+        background: rgba(245, 158, 11, 0.1);
+        color: #f59e0b;
+    }
+    
+    .status-completed {
+        background: rgba(59, 130, 246, 0.1);
+        color: #3b82f6;
+    }
+    
+    /* Action Buttons */
+    .action-buttons {
+        display: flex;
+        gap: 8px;
+    }
+    
+    .btn-icon {
+        width: 36px;
+        height: 36px;
+        background: var(--surface-bg);
+        border-radius: var(--radius-md);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-secondary);
+        transition: all var(--transition-fast);
+        border: 1px solid var(--border-color);
+    }
+    
+    .btn-icon:hover {
+        background: var(--tertiary-bg);
+        color: var(--text-primary);
+        border-color: var(--gold);
+    }
+    
+    .btn-icon.edit:hover {
+        background: #3b82f6;
+        color: white;
+        border-color: #3b82f6;
+    }
+    
+    .btn-icon.delete:hover {
+        background: #ef4444;
+        color: white;
+        border-color: #ef4444;
+    }
+    
+    /* Forms */
+    .form-card {
+        background: var(--card-bg);
+        border-radius: var(--radius-xl);
+        padding: 40px;
+        max-width: 800px;
+        margin: 0 auto;
+        border: 1px solid var(--border-color);
+    }
+    
+    .form-header {
+        margin-bottom: 30px;
+        text-align: center;
+    }
+    
+    .form-title {
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 10px;
+    }
+    
+    .form-subtitle {
+        color: var(--text-secondary);
+        font-size: 1rem;
+    }
+    
+    .form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 25px;
+        margin-bottom: 30px;
+    }
+    
+    @media (max-width: 768px) {
+        .form-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+    
+    .form-group {
+        margin-bottom: 20px;
+    }
+    
+    .form-group.full-width {
+        grid-column: span 2;
+    }
+    
+    @media (max-width: 768px) {
+        .form-group.full-width {
+            grid-column: span 1;
+        }
+    }
+    
+    .form-label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 600;
+        color: var(--text-primary);
+        font-size: 0.95rem;
+    }
+    
+    .form-control {
+        width: 100%;
+        padding: 14px 16px;
+        background: var(--surface-bg);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        color: var(--text-primary);
+        font-size: 1rem;
+        transition: all var(--transition-fast);
+    }
+    
+    .form-control:focus {
+        border-color: var(--gold);
+        box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.2);
+    }
+    
+    .form-textarea {
+        min-height: 150px;
+        resize: vertical;
+    }
+    
+    .form-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 15px;
+        padding-top: 30px;
+        border-top: 1px solid var(--border-color);
+    }
+    
+    .btn-primary {
+        padding: 14px 30px;
+        background: linear-gradient(135deg, var(--gold) 0%, var(--gold-dark) 100%);
+        color: var(--text-inverse);
+        border-radius: var(--radius-lg);
+        font-size: 1rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        transition: all var(--transition-normal);
+        box-shadow: var(--shadow-gold);
+    }
+    
+    .btn-primary:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 15px 30px rgba(212, 175, 55, 0.4);
+    }
+    
+    .btn-secondary {
+        padding: 14px 30px;
+        background: var(--surface-bg);
+        color: var(--text-primary);
+        border-radius: var(--radius-lg);
+        font-size: 1rem;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        transition: all var(--transition-fast);
+        border: 1px solid var(--border-color);
+    }
+    
+    .btn-secondary:hover {
+        background: var(--tertiary-bg);
+        transform: translateY(-3px);
+        box-shadow: var(--shadow-md);
+    }
+    
+    /* File Upload */
+    .file-upload {
+        border: 2px dashed var(--border-color);
+        border-radius: var(--radius-lg);
+        padding: 40px;
+        text-align: center;
+        cursor: pointer;
+        transition: all var(--transition-fast);
+    }
+    
+    .file-upload:hover {
+        border-color: var(--gold);
+        background: rgba(212, 175, 55, 0.05);
+    }
+    
+    .upload-icon {
+        font-size: 3rem;
+        color: var(--text-tertiary);
+        margin-bottom: 15px;
+    }
+    
+    .upload-text {
+        color: var(--text-secondary);
+        margin-bottom: 10px;
+    }
+    
+    .upload-note {
+        font-size: 0.85rem;
+        color: var(--text-tertiary);
+    }
+    
+    /* Responsive */
+    @media (max-width: 992px) {
+        .admin-sidebar {
+            transform: translateX(-100%);
+        }
+        
+        .admin-sidebar.active {
+            transform: translateX(0);
+        }
+        
+        .admin-content {
+            margin-left: 0 !important;
+        }
+        
+        .sidebar-toggle {
+            display: flex;
+        }
+    }
+    
+    @media (max-width: 768px) {
+        .topbar-right {
+            display: none;
+        }
+        
+        .content-wrapper {
+            padding: 20px;
+        }
+        
+        .overview-cards {
+            grid-template-columns: 1fr;
+        }
+        
+        .form-card {
+            padding: 25px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+    <!-- Admin Page -->
+    <div class="admin-page">
+        <!-- Sidebar -->
+        <aside class="admin-sidebar">
+            <!-- Sidebar Header -->
+            <div class="sidebar-header">
+                <div class="admin-logo">
+                    <div class="admin-logo-icon">VE</div>
+                    <div class="admin-logo-text">VOGUE ÉLITE ADMIN</div>
+                </div>
+                <div class="sidebar-toggle" id="sidebar-toggle">
+                    <i class="fas fa-chevron-left"></i>
+                </div>
+            </div>
+            
+            <!-- Sidebar Menu -->
+            <nav class="sidebar-menu">
+                <!-- Dashboard Section -->
+                <div class="menu-section">
+                    <div class="section-title">Главная</div>
+                    <div class="menu-items">
+                        <a href="#dashboard" class="menu-item active" data-section="dashboard">
+                            <i class="fas fa-chart-line menu-icon"></i>
+                            <span class="menu-label">Дашборд</span>
+                        </a>
+                    </div>
+                </div>
+                
+                <!-- Products Section -->
+                <div class="menu-section">
+                    <div class="section-title">Товары</div>
+                    <div class="menu-items">
+                        <a href="#products" class="menu-item" data-section="products">
+                            <i class="fas fa-tshirt menu-icon"></i>
+                            <span class="menu-label">Все товары</span>
+                            {% set product_count = namespace(count=0) %}
+                            {% for product in Product.query.filter_by(is_active=True).all() %}
+                                {% set product_count.count = product_count.count + 1 %}
+                            {% endfor %}
+                            <span class="menu-badge">{{ product_count.count }}</span>
+                        </a>
+                        <a href="#add-product" class="menu-item" data-section="add-product">
+                            <i class="fas fa-plus-circle menu-icon"></i>
+                            <span class="menu-label">Добавить товар</span>
+                        </a>
+                        <a href="#categories" class="menu-item" data-section="categories">
+                            <i class="fas fa-tags menu-icon"></i>
+                            <span class="menu-label">Категории</span>
+                        </a>
+                        <a href="#inventory" class="menu-item" data-section="inventory">
+                            <i class="fas fa-boxes menu-icon"></i>
+                            <span class="menu-label">Склад</span>
+                            {% set low_stock_count = namespace(count=0) %}
+                            {% for product in Product.query.filter(Product.stock <= 5, Product.is_active == True).all() %}
+                                {% set low_stock_count.count = low_stock_count.count + 1 %}
+                            {% endfor %}
+                            {% if low_stock_count.count > 0 %}
+                            <span class="menu-badge">{{ low_stock_count.count }}</span>
+                            {% endif %}
+                        </a>
+                    </div>
+                </div>
+                
+                <!-- Orders Section -->
+                <div class="menu-section">
+                    <div class="section-title">Заказы</div>
+                    <div class="menu-items">
+                        <a href="#orders" class="menu-item" data-section="orders">
+                            <i class="fas fa-shopping-bag menu-icon"></i>
+                            <span class="menu-label">Все заказы</span>
+                            {% set all_orders_count = Order.query.count() %}
+                            <span class="menu-badge">{{ all_orders_count }}</span>
+                        </a>
+                        <a href="#pending-orders" class="menu-item" data-section="pending-orders">
+                            <i class="fas fa-clock menu-icon"></i>
+                            <span class="menu-label">В ожидании</span>
+                            {% set pending_orders = Order.query.filter_by(status='new').count() %}
+                            <span class="menu-badge">{{ pending_orders }}</span>
+                        </a>
+                        <a href="#processing-orders" class="menu-item" data-section="processing-orders">
+                            <i class="fas fa-cog menu-icon"></i>
+                            <span class="menu-label">В обработке</span>
+                            {% set processing_orders = Order.query.filter_by(status='processing').count() %}
+                            <span class="menu-badge">{{ processing_orders }}</span>
+                        </a>
+                    </div>
+                </div>
+                
+                <!-- Customers Section -->
+                <div class="menu-section">
+                    <div class="section-title">Клиенты</div>
+                    <div class="menu-items">
+                        <a href="#customers" class="menu-item" data-section="customers">
+                            <i class="fas fa-users menu-icon"></i>
+                            <span class="menu-label">Все клиенты</span>
+                            {% set all_customers_count = User.query.count() %}
+                            <span class="menu-badge">{{ all_customers_count }}</span>
+                        </a>
+                        <a href="#vip-customers" class="menu-item" data-section="vip-customers">
+                            <i class="fas fa-crown menu-icon"></i>
+                            <span class="menu-label">VIP Клиенты</span>
+                            {% set vip_customers_count = User.query.filter_by(is_vip=True).count() %}
+                            <span class="menu-badge">{{ vip_customers_count }}</span>
+                        </a>
+                        <a href="#reviews" class="menu-item" data-section="reviews">
+                            <i class="fas fa-star menu-icon"></i>
+                            <span class="menu-label">Отзывы</span>
+                        </a>
+                    </div>
+                </div>
+                
+                <!-- Analytics Section -->
+                <div class="menu-section">
+                    <div class="section-title">Аналитика</div>
+                    <div class="menu-items">
+                        <a href="#sales" class="menu-item" data-section="sales">
+                            <i class="fas fa-chart-bar menu-icon"></i>
+                            <span class="menu-label">Продажи</span>
+                        </a>
+                        <a href="#reports" class="menu-item" data-section="reports">
+                            <i class="fas fa-file-alt menu-icon"></i>
+                            <span class="menu-label">Отчеты</span>
+                        </a>
+                    </div>
+                </div>
+                
+                <!-- Settings Section -->
+                <div class="menu-section">
+                    <div class="section-title">Настройки</div>
+                    <div class="menu-items">
+                        <a href="#settings" class="menu-item" data-section="settings">
+                            <i class="fas fa-cog menu-icon"></i>
+                            <span class="menu-label">Общие</span>
+                        </a>
+                        <a href="#users" class="menu-item" data-section="users">
+                            <i class="fas fa-user-shield menu-icon"></i>
+                            <span class="menu-label">Администраторы</span>
+                        </a>
+                        <a href="#shipping" class="menu-item" data-section="shipping">
+                            <i class="fas fa-shipping-fast menu-icon"></i>
+                            <span class="menu-label">Доставка</span>
+                        </a>
+                    </div>
+                </div>
+                
+                <!-- Logout -->
+                <div class="menu-section">
+                    <div class="menu-items">
+                        <a href="{{ url_for('logout') }}" class="menu-item">
+                            <i class="fas fa-sign-out-alt menu-icon"></i>
+                            <span class="menu-label">Выйти</span>
+                        </a>
+                    </div>
+                </div>
+            </nav>
+        </aside>
+        
+        <!-- Main Content -->
+        <main class="admin-content">
+            <!-- Top Bar -->
+            <header class="admin-topbar">
+                <div class="topbar-left">
+                    <div class="mobile-toggle" id="mobile-toggle" style="display: none;">
+                        <i class="fas fa-bars"></i>
+                    </div>
+                    <div class="page-title">
+                        <span id="page-title">Дашборд</span>
+                    </div>
+                    <div class="breadcrumb">
+                        <span class="breadcrumb-item">Главная</span>
+                        <span class="breadcrumb-item" id="breadcrumb-item">Дашборд</span>
+                    </div>
+                </div>
+                
+                <div class="topbar-right">
+                    <!-- Search Box -->
+                    <div class="search-box">
+                        <input type="text" class="search-input" placeholder="Поиск...">
+                        <i class="fas fa-search search-icon"></i>
+                    </div>
+                    
+                    <!-- Actions -->
+                    <div class="topbar-actions">
+                        <div class="action-btn notification-btn">
+                            <i class="fas fa-bell"></i>
+                            {% set unread_notifications = 0 %}
+                            {% if current_user.is_authenticated %}
+                                {% set unread_notifications = Notification.query.filter_by(user_id=current_user.id, is_read=False).count() %}
+                            {% endif %}
+                            {% if unread_notifications > 0 %}
+                            <span class="notification-badge"></span>
+                            {% endif %}
+                        </div>
+                        <div class="action-btn">
+                            <i class="fas fa-question-circle"></i>
+                        </div>
+                        
+                        <!-- Admin Profile -->
+                        <div class="admin-profile" id="admin-profile">
+                            <div class="profile-avatar">{{ current_user.first_name[0] if current_user.first_name else 'A' }}</div>
+                            <div class="profile-info">
+                                <div class="profile-name">{{ current_user.first_name or 'Администратор' }}</div>
+                                <div class="profile-role">{% if current_user.is_admin %}Супер-админ{% else %}Администратор{% endif %}</div>
+                            </div>
+                            <i class="fas fa-chevron-down" style="font-size: 12px; color: var(--text-tertiary);"></i>
+                        </div>
+                    </div>
+                </div>
+            </header>
+            
+            <!-- Content Wrapper -->
+            <div class="content-wrapper">
+                <!-- Dashboard Section -->
+                <section id="dashboard-section" class="admin-section active">
+                    <!-- Overview Cards -->
+                    <div class="dashboard-overview">
+                        <div class="overview-cards">
+                            <!-- Total Revenue Card -->
+                            <div class="stat-card">
+                                <div class="stat-icon">
+                                    <i class="fas fa-euro-sign"></i>
+                                </div>
+                                <div class="stat-info">
+                                    <div class="stat-title">Общая выручка</div>
+                                    {% set total_revenue = namespace(value=0) %}
+                                    {% for order in Order.query.all() %}
+                                        {% set total_revenue.value = total_revenue.value + order.final_amount %}
+                                    {% endfor %}
+                                    <div class="stat-value">{{ format_price(total_revenue.value) }} ₽</div>
+                                    <div class="stat-change change-up">
+                                        <i class="fas fa-arrow-up"></i>
+                                        <span>+12.5% за месяц</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Total Orders Card -->
+                            <div class="stat-card">
+                                <div class="stat-icon">
+                                    <i class="fas fa-shopping-bag"></i>
+                                </div>
+                                <div class="stat-info">
+                                    <div class="stat-title">Всего заказов</div>
+                                    {% set total_orders_count = Order.query.count() %}
+                                    <div class="stat-value">{{ total_orders_count }}</div>
+                                    <div class="stat-change change-up">
+                                        <i class="fas fa-arrow-up"></i>
+                                        <span>+8.2% за месяц</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Total Customers Card -->
+                            <div class="stat-card">
+                                <div class="stat-icon">
+                                    <i class="fas fa-users"></i>
+                                </div>
+                                <div class="stat-info">
+                                    <div class="stat-title">Клиентов</div>
+                                    {% set total_customers_count = User.query.count() %}
+                                    <div class="stat-value">{{ total_customers_count }}</div>
+                                    <div class="stat-change change-up">
+                                        <i class="fas fa-arrow-up"></i>
+                                        <span>+5.4% за месяц</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Conversion Rate Card -->
+                            <div class="stat-card">
+                                <div class="stat-icon">
+                                    <i class="fas fa-chart-line"></i>
+                                </div>
+                                <div class="stat-info">
+                                    <div class="stat-title">Конверсия</div>
+                                    <div class="stat-value">4.8%</div>
+                                    <div class="stat-change change-down">
+                                        <i class="fas fa-arrow-down"></i>
+                                        <span>-0.3% за неделю</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Recent Orders Table -->
+                        <div class="data-table" style="margin-bottom: 40px;">
+                            <div class="table-header">
+                                <h3 class="table-title">
+                                    <i class="fas fa-history"></i>
+                                    <span>Последние заказы</span>
+                                </h3>
+                                <div class="table-actions">
+                                    <button class="btn-secondary" onclick="showSection('orders')">
+                                        <i class="fas fa-eye"></i>
+                                        <span>Все заказы</span>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="table-content">
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th>Заказ #</th>
+                                            <th>Клиент</th>
+                                            <th>Дата</th>
+                                            <th>Сумма</th>
+                                            <th>Статус</th>
+                                            <th>Оплата</th>
+                                            <th>Действия</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for order in Order.query.order_by(Order.created_at.desc()).limit(10).all() %}
+                                        <tr>
+                                            <td class="order-id">{{ order.order_number }}</td>
+                                            <td>
+                                                <div style="font-weight: 600; color: var(--text-primary);">
+                                                    {{ order.user.first_name if order.user else 'Неизвестно' }}
+                                                </div>
+                                                <div style="font-size: 0.85rem; color: var(--text-tertiary);">
+                                                    {{ order.user.email if order.user and order.user.email else 'Нет email' }}
+                                                </div>
+                                            </td>
+                                            <td>{{ order.created_at.strftime('%d.%m.%Y %H:%M') if order.created_at else 'Нет данных' }}</td>
+                                            <td>
+                                                <div style="font-weight: 700; color: var(--gold);">{{ format_price(order.final_amount) }} ₽</div>
+                                            </td>
+                                            <td>
+                                                {% if order.status == 'new' %}
+                                                <span class="status-badge status-pending">В ожидании</span>
+                                                {% elif order.status == 'processing' %}
+                                                <span class="status-badge status-pending">Обрабатывается</span>
+                                                {% elif order.status == 'shipped' %}
+                                                <span class="status-badge status-pending">Отправлен</span>
+                                                {% elif order.status == 'delivered' %}
+                                                <span class="status-badge status-completed">Доставлен</span>
+                                                {% elif order.status == 'cancelled' %}
+                                                <span class="status-badge status-inactive">Отменен</span>
+                                                {% else %}
+                                                <span class="status-badge status-pending">{{ order.status }}</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <div style="display: flex; align-items: center; gap: 8px;">
+                                                    {% if order.payment_method == 'card' %}
+                                                    <i class="fab fa-cc-visa" style="color: #1a1f71;"></i>
+                                                    <span>Карта</span>
+                                                    {% elif order.payment_method == 'cash' %}
+                                                    <i class="fas fa-money-bill-wave" style="color: #10b981;"></i>
+                                                    <span>Наличные</span>
+                                                    {% else %}
+                                                    <i class="fas fa-credit-card" style="color: var(--text-tertiary);"></i>
+                                                    <span>{{ order.payment_method or 'Не указано' }}</span>
+                                                    {% endif %}
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div class="action-buttons">
+                                                    <button class="btn-icon edit" title="Редактировать" onclick="editOrder({{ order.id }})">
+                                                        <i class="fas fa-edit"></i>
+                                                    </button>
+                                                    <button class="btn-icon" title="Просмотреть" onclick="viewOrder({{ order.id }})">
+                                                        <i class="fas fa-eye"></i>
+                                                    </button>
+                                                    <button class="btn-icon" title="Печать" onclick="printOrder({{ order.id }})">
+                                                        <i class="fas fa-print"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        
+                        <!-- Recent Activity -->
+                        <div class="recent-activity">
+                            <div class="chart-header">
+                                <h3 class="chart-title">Последняя активность</h3>
+                                <div class="chart-actions">
+                                    <button class="btn-icon" onclick="refreshActivity()">
+                                        <i class="fas fa-sync"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="activity-list" id="activity-list">
+                                <!-- Activity items will be loaded dynamically -->
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                
+                <!-- Products Section -->
+                <section id="products-section" class="admin-section" style="display: none;">
+                    <div class="data-table">
+                        <div class="table-header">
+                            <h3 class="table-title">
+                                <i class="fas fa-tshirt"></i>
+                                <span>Все товары</span>
+                            </h3>
+                            <div class="table-actions">
+                                <button class="btn-primary" onclick="showSection('add-product')">
+                                    <i class="fas fa-plus"></i>
+                                    <span>Добавить товар</span>
+                                </button>
+                                <button class="btn-secondary" onclick="filterProducts()">
+                                    <i class="fas fa-filter"></i>
+                                    <span>Фильтр</span>
+                                </button>
+                                <button class="btn-secondary" onclick="exportProducts()">
+                                    <i class="fas fa-download"></i>
+                                    <span>Экспорт</span>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="table-content">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Товар</th>
+                                        <th>Категория</th>
+                                        <th>Цена</th>
+                                        <th>На складе</th>
+                                        <th>Статус</th>
+                                        <th>Действия</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="products-table-body">
+                                    {% for product in Product.query.filter_by(is_active=True).order_by(Product.created_at.desc()).limit(20).all() %}
+                                    <tr data-product-id="{{ product.id }}">
+                                        <td>#{{ product.article }}</td>
+                                        <td>
+                                            <div style="display: flex; align-items: center; gap: 10px;">
+                                                <div style="width: 50px; height: 50px; background: var(--surface-bg); border-radius: var(--radius-md); overflow: hidden;">
+                                                    {% if product.image_url %}
+                                                    <img src="{{ product.image_url }}" alt="{{ product.name }}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='{{ url_for('static', filename='img/placeholder.jpg') }}'">
+                                                    {% else %}
+                                                    <img src="{{ url_for('static', filename='img/placeholder.jpg') }}" alt="Нет фото" style="width: 100%; height: 100%; object-fit: cover;">
+                                                    {% endif %}
+                                                </div>
+                                                <div>
+                                                    <div style="font-weight: 600; color: var(--text-primary);">{{ product.name[:30] }}{% if product.name|length > 30 %}...{% endif %}</div>
+                                                    <div style="font-size: 0.85rem; color: var(--text-tertiary);">Арт: {{ product.article }}</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>{{ product.category }}</td>
+                                        <td>
+                                            <div style="font-weight: 700; color: var(--gold);">{{ format_price(product.price) }} ₽</div>
+                                            {% if product.old_price and product.old_price > product.price %}
+                                            <div style="text-decoration: line-through; color: var(--text-tertiary); font-size: 0.85rem;">{{ format_price(product.old_price) }} ₽</div>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if product.stock == 0 %}
+                                            <span style="color: #ef4444; font-weight: 600;">0 шт.</span>
+                                            {% elif product.stock <= 5 %}
+                                            <span style="color: #f59e0b; font-weight: 600;">{{ product.stock }} шт.</span>
+                                            {% else %}
+                                            <span style="color: #10b981; font-weight: 600;">{{ product.stock }} шт.</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if not product.is_active %}
+                                            <span class="status-badge status-inactive">Неактивен</span>
+                                            {% else %}
+                                            <span class="status-badge status-active">Активен</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div class="action-buttons">
+                                                <button class="btn-icon edit" title="Редактировать" onclick="editProduct({{ product.id }})">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <button class="btn-icon" title="Просмотреть" onclick="viewProduct({{ product.id }})">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                                <button class="btn-icon delete" title="Удалить" onclick="deleteProduct({{ product.id }})">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div style="padding: 20px; text-align: center;">
+                            <button class="btn-secondary" onclick="loadMoreProducts()">
+                                <i class="fas fa-plus"></i>
+                                <span>Загрузить еще</span>
+                            </button>
+                        </div>
+                    </div>
+                </section>
+                
+                <!-- Add Product Section -->
+                <section id="add-product-section" class="admin-section" style="display: none;">
+                    <div class="form-card">
+                        <div class="form-header">
+                            <h2 class="form-title">Добавить новый товар</h2>
+                            <p class="form-subtitle">Заполните информацию о товаре для добавления в каталог</p>
+                        </div>
+                        
+                        <form id="add-product-form" method="POST" action="{{ url_for('api_create_product') }}" enctype="multipart/form-data">
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label class="form-label">Название товара *</label>
+                                    <input type="text" class="form-control" name="name" placeholder="Вечернее платье с золотой вышивкой" required>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label">Артикул *</label>
+                                    <input type="text" class="form-control" name="article" placeholder="VE-0001" required>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label">Категория *</label>
+                                    <select class="form-control" name="category" required>
+                                        <option value="">Выберите категорию</option>
+                                        <option value="Платья">Платья</option>
+                                        <option value="Костюмы">Костюмы</option>
+                                        <option value="Блузы">Блузы</option>
+                                        <option value="Брюки">Брюки</option>
+                                        <option value="Юбки">Юбки</option>
+                                        <option value="Куртки">Куртки</option>
+                                        <option value="Пальто">Пальто</option>
+                                        <option value="Обувь">Обувь</option>
+                                        <option value="Сумки">Сумки</option>
+                                        <option value="Украшения">Украшения</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label">Бренд</label>
+                                    <select class="form-control" name="brand">
+                                        <option value="">Выберите бренд</option>
+                                        <option value="VOGUE ÉLITE" selected>VOGUE ÉLITE</option>
+                                        <option value="Gucci">Gucci</option>
+                                        <option value="Chanel">Chanel</option>
+                                        <option value="Dior">Dior</option>
+                                        <option value="Hermès">Hermès</option>
+                                        <option value="Prada">Prada</option>
+                                        <option value="Versace">Versace</option>
+                                        <option value="Armani">Armani</option>
+                                        <option value="Burberry">Burberry</option>
+                                        <option value="Balenciaga">Balenciaga</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label">Цена *</label>
+                                    <input type="number" class="form-control" name="price" placeholder="4500" step="0.01" min="0" required>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label">Старая цена</label>
+                                    <input type="number" class="form-control" name="old_price" placeholder="5200" step="0.01" min="0">
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label">Количество на складе *</label>
+                                    <input type="number" class="form-control" name="stock" placeholder="10" min="0" required>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label">Размеры</label>
+                                    <input type="text" class="form-control" name="size" placeholder="XS, S, M, L, XL">
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label">Цвета</label>
+                                    <input type="text" class="form-control" name="color" placeholder="Черный, Золотой, Белый">
+                                </div>
+                                
+                                <div class="form-group full-width">
+                                    <label class="form-label">Краткое описание</label>
+                                    <textarea class="form-control" name="description" rows="3" placeholder="Краткое описание товара для карточки..."></textarea>
+                                </div>
+                                
+                                <div class="form-group full-width">
+                                    <label class="form-label">Подробное описание</label>
+                                    <textarea class="form-control form-textarea" name="detailed_description" placeholder="Подробное описание товара с характеристиками..."></textarea>
+                                </div>
+                                
+                                <!-- Image Upload -->
+                                <div class="form-group full-width">
+                                    <label class="form-label">Изображения товара</label>
+                                    <div class="file-upload" id="image-upload" onclick="document.getElementById('image-input').click()">
+                                        <div class="upload-icon">
+                                            <i class="fas fa-cloud-upload-alt"></i>
+                                        </div>
+                                        <div class="upload-text">Перетащите изображения сюда или нажмите для загрузки</div>
+                                        <div class="upload-note">Поддерживаемые форматы: JPG, PNG, GIF. Максимальный размер: 5MB</div>
+                                    </div>
+                                    <input type="file" id="image-input" name="image" accept="image/*" style="display: none;" onchange="previewImage(event)">
+                                    <div id="uploaded-images" style="margin-top: 15px; display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px;"></div>
+                                </div>
+                                
+                                <!-- Tags and Options -->
+                                <div class="form-group full-width">
+                                    <label class="form-label">Метки и статусы</label>
+                                    <div style="display: flex; flex-wrap: wrap; gap: 15px; margin-top: 10px;">
+                                        <label class="checkbox-group" style="display: flex; align-items: center; gap: 8px;">
+                                            <input type="checkbox" name="is_new">
+                                            <span class="checkbox-custom"></span>
+                                            <span class="checkbox-label">Новинка</span>
+                                        </label>
+                                        <label class="checkbox-group" style="display: flex; align-items: center; gap: 8px;">
+                                            <input type="checkbox" name="is_hit">
+                                            <span class="checkbox-custom"></span>
+                                            <span class="checkbox-label">Бестселлер</span>
+                                        </label>
+                                        <label class="checkbox-group" style="display: flex; align-items: center; gap: 8px;">
+                                            <input type="checkbox" name="is_exclusive">
+                                            <span class="checkbox-custom"></span>
+                                            <span class="checkbox-label">Эксклюзив</span>
+                                        </label>
+                                        <label class="checkbox-group" style="display: flex; align-items: center; gap: 8px;">
+                                            <input type="checkbox" name="is_limited">
+                                            <span class="checkbox-custom"></span>
+                                            <span class="checkbox-label">Лимитированная серия</span>
+                                        </label>
+                                        <label class="checkbox-group" style="display: flex; align-items: center; gap: 8px;">
+                                            <input type="checkbox" name="is_active" checked>
+                                            <span class="checkbox-custom"></span>
+                                            <span class="checkbox-label">Активен</span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="form-actions">
+                                <button type="button" class="btn-secondary" onclick="showSection('products')">
+                                    <i class="fas fa-times"></i>
+                                    <span>Отмена</span>
+                                </button>
+                                <button type="submit" class="btn-primary">
+                                    <i class="fas fa-save"></i>
+                                    <span>Сохранить товар</span>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </section>
+                
+                <!-- Orders Section -->
+                <section id="orders-section" class="admin-section" style="display: none;">
+                    <div class="data-table">
+                        <div class="table-header">
+                            <h3 class="table-title">
+                                <i class="fas fa-shopping-bag"></i>
+                                <span>Все заказы</span>
+                            </h3>
+                            <div class="table-actions">
+                                <button class="btn-secondary" onclick="filterOrders()">
+                                    <i class="fas fa-filter"></i>
+                                    <span>Фильтр</span>
+                                </button>
+                                <button class="btn-secondary" onclick="exportOrders()">
+                                    <i class="fas fa-download"></i>
+                                    <span>Экспорт</span>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="table-content">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Заказ #</th>
+                                        <th>Клиент</th>
+                                        <th>Дата</th>
+                                        <th>Сумма</th>
+                                        <th>Статус</th>
+                                        <th>Оплата</th>
+                                        <th>Действия</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="orders-table-body">
+                                    {% for order in Order.query.order_by(Order.created_at.desc()).limit(20).all() %}
+                                    <tr>
+                                        <td class="order-id">{{ order.order_number }}</td>
+                                        <td>
+                                            <div style="font-weight: 600; color: var(--text-primary);">
+                                                {{ order.user.first_name if order.user else 'Неизвестно' }}
+                                            </div>
+                                            <div style="font-size: 0.85rem; color: var(--text-tertiary);">
+                                                {{ order.user.email if order.user and order.user.email else 'Нет email' }}
+                                            </div>
+                                        </td>
+                                        <td>{{ order.created_at.strftime('%d.%m.%Y') if order.created_at else 'Нет данных' }}</td>
+                                        <td>
+                                            <div style="font-weight: 700; color: var(--gold);">{{ format_price(order.final_amount) }} ₽</div>
+                                        </td>
+                                        <td>
+                                            {% if order.status == 'new' %}
+                                            <span class="status-badge status-pending">В ожидании</span>
+                                            {% elif order.status == 'processing' %}
+                                            <span class="status-badge status-pending">Обрабатывается</span>
+                                            {% elif order.status == 'shipped' %}
+                                            <span class="status-badge status-pending">Отправлен</span>
+                                            {% elif order.status == 'delivered' %}
+                                            <span class="status-badge status-completed">Доставлен</span>
+                                            {% elif order.status == 'cancelled' %}
+                                            <span class="status-badge status-inactive">Отменен</span>
+                                            {% else %}
+                                            <span class="status-badge status-pending">{{ order.status }}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                {% if order.payment_method == 'card' %}
+                                                <i class="fab fa-cc-visa" style="color: #1a1f71;"></i>
+                                                <span>Карта</span>
+                                                {% elif order.payment_method == 'cash' %}
+                                                <i class="fas fa-money-bill-wave" style="color: #10b981;"></i>
+                                                <span>Наличные</span>
+                                                {% else %}
+                                                <i class="fas fa-credit-card" style="color: var(--text-tertiary);"></i>
+                                                <span>{{ order.payment_method or 'Не указано' }}</span>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="action-buttons">
+                                                <button class="btn-icon edit" title="Редактировать" onclick="editOrder({{ order.id }})">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <button class="btn-icon" title="Просмотреть" onclick="viewOrder({{ order.id }})">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                                <button class="btn-icon" title="Печать" onclick="printOrder({{ order.id }})">
+                                                    <i class="fas fa-print"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div style="padding: 20px; text-align: center;">
+                            <button class="btn-secondary" onclick="loadMoreOrders()">
+                                <i class="fas fa-plus"></i>
+                                <span>Загрузить еще</span>
+                            </button>
+                        </div>
+                    </div>
+                </section>
+                
+                <!-- Customers Section -->
+                <section id="customers-section" class="admin-section" style="display: none;">
+                    <div class="data-table">
+                        <div class="table-header">
+                            <h3 class="table-title">
+                                <i class="fas fa-users"></i>
+                                <span>Все клиенты</span>
+                            </h3>
+                            <div class="table-actions">
+                                <button class="btn-secondary" onclick="filterCustomers()">
+                                    <i class="fas fa-filter"></i>
+                                    <span>Фильтр</span>
+                                </button>
+                                <button class="btn-secondary" onclick="exportCustomers()">
+                                    <i class="fas fa-download"></i>
+                                    <span>Экспорт</span>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="table-content">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Клиент</th>
+                                        <th>Email</th>
+                                        <th>Телефон</th>
+                                        <th>Заказы</th>
+                                        <th>Сумма</th>
+                                        <th>Статус</th>
+                                        <th>Действия</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="customers-table-body">
+                                    {% for user in User.query.order_by(User.created_at.desc()).limit(20).all() %}
+                                    <tr>
+                                        <td>#CUST-{{ "%04d"|format(user.id) }}</td>
+                                        <td>
+                                            <div style="display: flex; align-items: center; gap: 10px;">
+                                                <div style="width: 40px; height: 40px; background: linear-gradient(135deg, var(--gold) 0%, var(--rose-gold) 100%); border-radius: var(--radius-full); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600;">
+                                                    {{ user.first_name[0] if user.first_name else '?' }}
+                                                </div>
+                                                <div>
+                                                    <div style="font-weight: 600; color: var(--text-primary);">{{ user.first_name }} {{ user.last_name or '' }}</div>
+                                                    <div style="font-size: 0.85rem; color: var(--text-tertiary);">
+                                                        {% if user.is_vip %}
+                                                        VIP Platinum
+                                                        {% else %}
+                                                        Стандарт
+                                                        {% endif %}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>{{ user.email or 'Нет email' }}</td>
+                                        <td>{{ user.phone or 'Нет телефона' }}</td>
+                                        <td>{{ user.total_orders }}</td>
+                                        <td>{{ format_price(user.total_spent) }} ₽</td>
+                                        <td>
+                                            {% if user.is_active %}
+                                            <span class="status-badge status-active">Активен</span>
+                                            {% else %}
+                                            <span class="status-badge status-inactive">Неактивен</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div class="action-buttons">
+                                                <button class="btn-icon edit" title="Редактировать" onclick="editCustomer({{ user.id }})">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <button class="btn-icon" title="Просмотреть" onclick="viewCustomer({{ user.id }})">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                                <button class="btn-icon" title="Отправить email" onclick="sendEmailToCustomer({{ user.id }})">
+                                                    <i class="fas fa-envelope"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div style="padding: 20px; text-align: center;">
+                            <button class="btn-secondary" onclick="loadMoreCustomers()">
+                                <i class="fas fa-plus"></i>
+                                <span>Загрузить еще</span>
+                            </button>
+                        </div>
+                    </div>
+                </section>
+                
+                <!-- Settings Section -->
+                <section id="settings-section" class="admin-section" style="display: none;">
+                    <div class="form-card">
+                        <div class="form-header">
+                            <h2 class="form-title">Настройки магазина</h2>
+                            <p class="form-subtitle">Управление основными параметрами вашего магазина</p>
+                        </div>
+                        
+                        <form id="settings-form" method="POST" action="{{ url_for('api_update_settings') }}">
+                            <div class="form-grid">
+                                <!-- General Settings -->
+                                <div class="form-group full-width">
+                                    <h3 class="group-title" style="margin-bottom: 20px;">
+                                        <i class="fas fa-store"></i>
+                                        <span>Основные настройки</span>
+                                    </h3>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label">Название магазина *</label>
+                                    <input type="text" class="form-control" name="shop_name" value="{{ shop_name }}" required>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label">Email магазина *</label>
+                                    <input type="email" class="form-control" name="shop_email" value="{{ shop_email }}" required>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label">Телефон магазина</label>
+                                    <input type="tel" class="form-control" name="shop_phone" value="{{ shop_phone }}">
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label">Валюта</label>
+                                    <select class="form-control" name="currency">
+                                        <option value="₽" selected>Рубль (₽)</option>
+                                        <option value="$">Доллар ($)</option>
+                                        <option value="€">Евро (€)</option>
+                                    </select>
+                                </div>
+                                
+                                <!-- Store Details -->
+                                <div class="form-group full-width">
+                                    <label class="form-label">Адрес магазина</label>
+                                    <textarea class="form-control" name="shop_address" rows="3">Москва, ул. Тверская, д. 1</textarea>
+                                </div>
+                                
+                                <!-- Shipping Settings -->
+                                <div class="form-group full-width">
+                                    <h3 class="group-title" style="margin-bottom: 20px;">
+                                        <i class="fas fa-shipping-fast"></i>
+                                        <span>Настройки доставки</span>
+                                    </h3>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label">Стоимость доставки (₽)</label>
+                                    <input type="number" class="form-control" name="delivery_cost" value="{{ delivery_cost }}" step="0.01" min="0">
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label">Бесплатная доставка от (₽)</label>
+                                    <input type="number" class="form-control" name="free_delivery_threshold" value="{{ free_delivery_threshold }}" step="0.01" min="0">
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label">Сроки доставки (дни)</label>
+                                    <input type="text" class="form-control" name="delivery_time" value="3-5">
+                                </div>
+                                
+                                <!-- Tax Settings -->
+                                <div class="form-group">
+                                    <label class="form-label">НДС (%)</label>
+                                    <input type="number" class="form-control" name="vat" value="20" step="0.1" min="0" max="100">
+                                </div>
+                                
+                                <!-- Maintenance -->
+                                <div class="form-group full-width">
+                                    <h3 class="group-title" style="margin-bottom: 20px;">
+                                        <i class="fas fa-tools"></i>
+                                        <span>Технические настройки</span>
+                                    </h3>
+                                </div>
+                                
+                                <div class="form-group full-width">
+                                    <label class="checkbox-group" style="display: flex; align-items: center; gap: 10px;">
+                                        <input type="checkbox" name="maintenance_mode">
+                                        <span class="checkbox-custom"></span>
+                                        <span class="checkbox-label">Режим технического обслуживания</span>
+                                    </label>
+                                    <div style="font-size: 0.85rem; color: var(--text-tertiary); margin-top: 5px;">
+                                        При включении магазин будет недоступен для покупателей
+                                    </div>
+                                </div>
+                                
+                                <div class="form-group full-width">
+                                    <label class="checkbox-group" style="display: flex; align-items: center; gap: 10px;">
+                                        <input type="checkbox" name="debug_mode" checked>
+                                        <span class="checkbox-custom"></span>
+                                        <span class="checkbox-label">Включить отладку</span>
+                                    </label>
+                                </div>
+                                
+                                <div class="form-group full-width">
+                                    <label class="checkbox-group" style="display: flex; align-items: center; gap: 10px;">
+                                        <input type="checkbox" name="caching" checked>
+                                        <span class="checkbox-custom"></span>
+                                        <span class="checkbox-label">Включить кэширование</span>
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <div class="form-actions">
+                                <button type="reset" class="btn-secondary">
+                                    <i class="fas fa-undo"></i>
+                                    <span>Сбросить</span>
+                                </button>
+                                <button type="submit" class="btn-primary">
+                                    <i class="fas fa-save"></i>
+                                    <span>Сохранить настройки</span>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </section>
+                
+                <!-- Categories Section -->
+                <section id="categories-section" class="admin-section" style="display: none;">
+                    <div class="data-table">
+                        <div class="table-header">
+                            <h3 class="table-title">
+                                <i class="fas fa-tags"></i>
+                                <span>Категории товаров</span>
+                            </h3>
+                            <div class="table-actions">
+                                <button class="btn-primary" onclick="addCategory()">
+                                    <i class="fas fa-plus"></i>
+                                    <span>Добавить категорию</span>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="table-content">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Название</th>
+                                        <th>Количество товаров</th>
+                                        <th>Описание</th>
+                                        <th>Действия</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="categories-table-body">
+                                    {% set categories_data = {} %}
+                                    {% for product in Product.query.all() %}
+                                        {% if product.category %}
+                                            {% if product.category not in categories_data %}
+                                                {% set _ = categories_data.update({product.category: 1}) %}
+                                            {% else %}
+                                                {% set _ = categories_data.update({product.category: categories_data[product.category] + 1}) %}
+                                            {% endif %}
+                                        {% endif %}
+                                    {% endfor %}
+                                    
+                                    {% for category, count in categories_data.items() %}
+                                    <tr>
+                                        <td>
+                                            <div style="font-weight: 600; color: var(--text-primary);">{{ category }}</div>
+                                        </td>
+                                        <td>
+                                            <span class="status-badge status-active">{{ count }} товаров</span>
+                                        </td>
+                                        <td>
+                                            <div style="color: var(--text-secondary); font-size: 0.9rem;">
+                                                Категория товаров премиум-класса
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="action-buttons">
+                                                <button class="btn-icon edit" title="Редактировать" onclick="editCategory('{{ category }}')">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <button class="btn-icon" title="Просмотреть товары" onclick="viewCategoryProducts('{{ category }}')">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                                <button class="btn-icon delete" title="Удалить" onclick="deleteCategory('{{ category }}')">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+                
+                <!-- Inventory Section -->
+                <section id="inventory-section" class="admin-section" style="display: none;">
+                    <div class="data-table">
+                        <div class="table-header">
+                            <h3 class="table-title">
+                                <i class="fas fa-boxes"></i>
+                                <span>Управление складом</span>
+                            </h3>
+                            <div class="table-actions">
+                                <button class="btn-secondary" onclick="exportInventory()">
+                                    <i class="fas fa-download"></i>
+                                    <span>Экспорт</span>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="table-content">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Товар</th>
+                                        <th>Артикул</th>
+                                        <th>Категория</th>
+                                        <th>На складе</th>
+                                        <th>Зарезервировано</th>
+                                        <th>Статус</th>
+                                        <th>Действия</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="inventory-table-body">
+                                    {% for product in Product.query.filter(Product.stock <= 10, Product.is_active == True).order_by(Product.stock.asc()).all() %}
+                                    <tr>
+                                        <td>
+                                            <div style="display: flex; align-items: center; gap: 10px;">
+                                                <div style="width: 40px; height: 40px; background: var(--surface-bg); border-radius: var(--radius-md); overflow: hidden;">
+                                                    {% if product.image_url %}
+                                                    <img src="{{ product.image_url }}" alt="{{ product.name }}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='{{ url_for('static', filename='img/placeholder.jpg') }}'">
+                                                    {% else %}
+                                                    <img src="{{ url_for('static', filename='img/placeholder.jpg') }}" alt="Нет фото" style="width: 100%; height: 100%; object-fit: cover;">
+                                                    {% endif %}
+                                                </div>
+                                                <div style="font-weight: 600; color: var(--text-primary);">{{ product.name[:25] }}{% if product.name|length > 25 %}...{% endif %}</div>
+                                            </div>
+                                        </td>
+                                        <td>{{ product.article }}</td>
+                                        <td>{{ product.category }}</td>
+                                        <td>
+                                            <span style="font-weight: 600; {% if product.stock == 0 %}color: #ef4444;{% elif product.stock <= 5 %}color: #f59e0b;{% else %}color: #10b981;{% endif %}">
+                                                {{ product.stock }} шт.
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span style="color: var(--text-tertiary);">{{ product.reserved or 0 }} шт.</span>
+                                        </td>
+                                        <td>
+                                            {% if product.stock == 0 %}
+                                            <span class="status-badge status-inactive">Нет в наличии</span>
+                                            {% elif product.stock <= 5 %}
+                                            <span class="status-badge status-pending">Мало на складе</span>
+                                            {% else %}
+                                            <span class="status-badge status-active">В наличии</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div class="action-buttons">
+                                                <button class="btn-icon edit" title="Изменить количество" onclick="updateStock({{ product.id }})">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <button class="btn-icon" title="Заказать поставку" onclick="orderSupply({{ product.id }})">
+                                                    <i class="fas fa-truck"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div style="padding: 20px; text-align: center;">
+                            <button class="btn-secondary" onclick="showAllInventory()">
+                                <i class="fas fa-eye"></i>
+                                <span>Показать все товары на складе</span>
+                            </button>
+                        </div>
+                    </div>
+                </section>
+                
+                <!-- VIP Customers Section -->
+                <section id="vip-customers-section" class="admin-section" style="display: none;">
+                    <div class="data-table">
+                        <div class="table-header">
+                            <h3 class="table-title">
+                                <i class="fas fa-crown"></i>
+                                <span>VIP Клиенты</span>
+                            </h3>
+                            <div class="table-actions">
+                                <button class="btn-primary" onclick="addVIPCustomer()">
+                                    <i class="fas fa-plus"></i>
+                                    <span>Добавить VIP клиента</span>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="table-content">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Клиент</th>
+                                        <th>Email</th>
+                                        <th>Телефон</th>
+                                        <th>Заказы</th>
+                                        <th>Сумма</th>
+                                        <th>VIP с</th>
+                                        <th>Действия</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="vip-customers-table-body">
+                                    {% for user in User.query.filter_by(is_vip=True).order_by(User.total_spent.desc()).all() %}
+                                    <tr>
+                                        <td>
+                                            <div style="display: flex; align-items: center; gap: 10px;">
+                                                <div style="width: 40px; height: 40px; background: linear-gradient(135deg, var(--gold) 0%, var(--rose-gold) 100%); border-radius: var(--radius-full); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600;">
+                                                    {{ user.first_name[0] if user.first_name else 'V' }}
+                                                </div>
+                                                <div>
+                                                    <div style="font-weight: 600; color: var(--text-primary);">{{ user.first_name }} {{ user.last_name or '' }}</div>
+                                                    <div style="font-size: 0.85rem; color: var(--text-tertiary);">VIP клиент</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>{{ user.email or 'Нет email' }}</td>
+                                        <td>{{ user.phone or 'Нет телефона' }}</td>
+                                        <td>{{ user.total_orders }}</td>
+                                        <td>
+                                            <div style="font-weight: 700; color: var(--gold);">{{ format_price(user.total_spent) }} ₽</div>
+                                        </td>
+                                        <td>
+                                            <div style="font-size: 0.85rem; color: var(--text-tertiary);">
+                                                {{ user.created_at.strftime('%d.%m.%Y') if user.created_at else 'Неизвестно' }}
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="action-buttons">
+                                                <button class="btn-icon edit" title="Редактировать" onclick="editCustomer({{ user.id }})">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <button class="btn-icon" title="Отправить VIP предложение" onclick="sendVIPOffer({{ user.id }})">
+                                                    <i class="fas fa-gift"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+                
+                <!-- Analytics Section -->
+                <section id="sales-section" class="admin-section" style="display: none;">
+                    <div class="dashboard-overview">
+                        <div class="overview-cards">
+                            <div class="stat-card">
+                                <div class="stat-icon">
+                                    <i class="fas fa-chart-line"></i>
+                                </div>
+                                <div class="stat-info">
+                                    <div class="stat-title">Продажи за месяц</div>
+                                    {% set monthly_revenue = namespace(value=0) %}
+                                    {% set month_start = datetime.utcnow().replace(day=1, hour=0, minute=0, second=0, microsecond=0) %}
+                                    {% for order in Order.query.filter(Order.created_at >= month_start).all() %}
+                                        {% set monthly_revenue.value = monthly_revenue.value + order.final_amount %}
+                                    {% endfor %}
+                                    <div class="stat-value">{{ format_price(monthly_revenue.value) }} ₽</div>
+                                    <div class="stat-change change-up">
+                                        <i class="fas fa-arrow-up"></i>
+                                        <span>+15.2% за месяц</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="stat-card">
+                                <div class="stat-icon">
+                                    <i class="fas fa-shopping-cart"></i>
+                                </div>
+                                <div class="stat-info">
+                                    <div class="stat-title">Заказы за месяц</div>
+                                    {% set monthly_orders = Order.query.filter(Order.created_at >= month_start).count() %}
+                                    <div class="stat-value">{{ monthly_orders }}</div>
+                                    <div class="stat-change change-up">
+                                        <i class="fas fa-arrow-up"></i>
+                                        <span>+8.7% за месяц</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="stat-card">
+                                <div class="stat-icon">
+                                    <i class="fas fa-user-plus"></i>
+                                </div>
+                                <div class="stat-info">
+                                    <div class="stat-title">Новые клиенты</div>
+                                    {% set new_customers = User.query.filter(User.created_at >= month_start).count() %}
+                                    <div class="stat-value">{{ new_customers }}</div>
+                                    <div class="stat-change change-up">
+                                        <i class="fas fa-arrow-up"></i>
+                                        <span>+12.4% за месяц</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="stat-card">
+                                <div class="stat-icon">
+                                    <i class="fas fa-percentage"></i>
+                                </div>
+                                <div class="stat-info">
+                                    <div class="stat-title">Средний чек</div>
+                                    {% set avg_check = monthly_revenue.value / monthly_orders if monthly_orders > 0 else 0 %}
+                                    <div class="stat-value">{{ format_price(avg_check) }} ₽</div>
+                                    <div class="stat-change change-down">
+                                        <i class="fas fa-arrow-down"></i>
+                                        <span>-2.1% за месяц</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Sales Chart -->
+                        <div class="chart-card" style="margin-bottom: 40px;">
+                            <div class="chart-header">
+                                <h3 class="chart-title">Динамика продаж</h3>
+                                <div class="chart-actions">
+                                    <select class="form-control" style="width: 150px;" onchange="updateSalesChart(this.value)">
+                                        <option value="month">За месяц</option>
+                                        <option value="week">За неделю</option>
+                                        <option value="year">За год</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="chart-placeholder">
+                                <canvas id="sales-chart"></canvas>
+                            </div>
+                        </div>
+                        
+                        <!-- Top Products -->
+                        <div class="data-table">
+                            <div class="table-header">
+                                <h3 class="table-title">
+                                    <i class="fas fa-chart-bar"></i>
+                                    <span>Топ товаров</span>
+                                </h3>
+                                <div class="table-actions">
+                                    <button class="btn-secondary" onclick="exportTopProducts()">
+                                        <i class="fas fa-download"></i>
+                                        <span>Экспорт</span>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="table-content">
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th>Товар</th>
+                                            <th>Категория</th>
+                                            <th>Цена</th>
+                                            <th>Продажи</th>
+                                            <th>Выручка</th>
+                                            <th>Рейтинг</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for product in Product.query.filter_by(is_hit=True).order_by(db.func.random()).limit(5).all() %}
+                                        <tr>
+                                            <td>
+                                                <div style="display: flex; align-items: center; gap: 10px;">
+                                                    <div style="width: 40px; height: 40px; background: var(--surface-bg); border-radius: var(--radius-md); overflow: hidden;">
+                                                        {% if product.image_url %}
+                                                        <img src="{{ product.image_url }}" alt="{{ product.name }}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='{{ url_for('static', filename='img/placeholder.jpg') }}'">
+                                                        {% else %}
+                                                        <img src="{{ url_for('static', filename='img/placeholder.jpg') }}" alt="Нет фото" style="width: 100%; height: 100%; object-fit: cover;">
+                                                        {% endif %}
+                                                    </div>
+                                                    <div style="font-weight: 600; color: var(--text-primary);">{{ product.name[:25] }}{% if product.name|length > 25 %}...{% endif %}</div>
+                                                </div>
+                                            </td>
+                                            <td>{{ product.category }}</td>
+                                            <td>
+                                                <div style="font-weight: 700; color: var(--gold);">{{ format_price(product.price) }} ₽</div>
+                                            </td>
+                                            <td>
+                                                {% set sales_count = random.randint(10, 50) %}
+                                                <span style="font-weight: 600; color: var(--text-primary);">{{ sales_count }}</span>
+                                            </td>
+                                            <td>
+                                                <div style="font-weight: 700; color: var(--gold);">{{ format_price(product.price * sales_count) }} ₽</div>
+                                            </td>
+                                            <td>
+                                                <div class="stars">
+                                                    {% for i in range(5) %}
+                                                        {% if i < 4 %}
+                                                        <i class="fas fa-star" style="color: var(--gold);"></i>
+                                                        {% else %}
+                                                        <i class="fas fa-star-half-alt" style="color: var(--gold);"></i>
+                                                        {% endif %}
+                                                    {% endfor %}
+                                                    <span style="font-size: 0.85rem; color: var(--text-tertiary); margin-left: 5px;">4.5</span>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize variables
+        let currentProductPage = 1;
+        let currentOrderPage = 1;
+        let currentCustomerPage = 1;
+        let salesChart = null;
+        
+        // Sidebar Toggle
+        const sidebarToggle = document.getElementById('sidebar-toggle');
+        const mobileToggle = document.getElementById('mobile-toggle');
+        const adminSidebar = document.querySelector('.admin-sidebar');
+        
+        if (sidebarToggle) {
+            sidebarToggle.addEventListener('click', function() {
+                adminSidebar.classList.toggle('collapsed');
+                const icon = this.querySelector('i');
+                if (adminSidebar.classList.contains('collapsed')) {
+                    icon.className = 'fas fa-chevron-right';
+                } else {
+                    icon.className = 'fas fa-chevron-left';
+                }
+            });
+        }
+        
+        // Mobile Toggle
+        if (mobileToggle) {
+            mobileToggle.addEventListener('click', function() {
+                adminSidebar.classList.toggle('active');
+            });
+        }
+        
+        // Check screen size for mobile
+        function checkScreenSize() {
+            if (window.innerWidth <= 992) {
+                adminSidebar.classList.remove('collapsed');
+                if (mobileToggle) mobileToggle.style.display = 'flex';
+                if (sidebarToggle) sidebarToggle.style.display = 'none';
+            } else {
+                if (mobileToggle) mobileToggle.style.display = 'none';
+                if (sidebarToggle) sidebarToggle.style.display = 'flex';
+            }
+        }
+        
+        checkScreenSize();
+        window.addEventListener('resize', checkScreenSize);
+        
+        // Menu Navigation
+        const menuItems = document.querySelectorAll('.menu-item[data-section]');
+        const sections = document.querySelectorAll('.admin-section');
+        const pageTitle = document.getElementById('page-title');
+        const breadcrumbItem = document.getElementById('breadcrumb-item');
+        
+        // Menu titles mapping
+        const menuTitles = {
+            'dashboard': 'Дашборд',
+            'products': 'Все товары',
+            'add-product': 'Добавить товар',
+            'categories': 'Категории',
+            'inventory': 'Склад',
+            'orders': 'Все заказы',
+            'pending-orders': 'Заказы в ожидании',
+            'processing-orders': 'Заказы в обработке',
+            'customers': 'Все клиенты',
+            'vip-customers': 'VIP Клиенты',
+            'reviews': 'Отзывы',
+            'sales': 'Аналитика продаж',
+            'reports': 'Отчеты',
+            'settings': 'Настройки магазина',
+            'users': 'Администраторы',
+            'shipping': 'Настройки доставки'
+        };
+        
+        menuItems.forEach(item => {
+            item.addEventListener('click', function(e) {
+                e.preventDefault();
+                
+                const sectionId = this.getAttribute('data-section');
+                
+                // Update active menu item
+                menuItems.forEach(i => i.classList.remove('active'));
+                this.classList.add('active');
+                
+                // Hide all sections
+                sections.forEach(section => {
+                    section.style.display = 'none';
+                    section.classList.remove('active');
+                });
+                
+                // Show selected section
+                const activeSection = document.getElementById(`${sectionId}-section`);
+                if (activeSection) {
+                    activeSection.style.display = 'block';
+                    activeSection.classList.add('active');
+                    
+                    // Update page title
+                    if (pageTitle && breadcrumbItem) {
+                        pageTitle.textContent = menuTitles[sectionId] || 'Админ-панель';
+                        breadcrumbItem.textContent = menuTitles[sectionId] || 'Раздел';
+                    }
+                    
+                    // Initialize charts if needed
+                    if (sectionId === 'sales' && !salesChart) {
+                        setTimeout(() => {
+                            initializeSalesChart();
+                        }, 100);
+                    }
+                    
+                    // Load activity if needed
+                    if (sectionId === 'dashboard') {
+                        loadActivity();
+                    }
+                }
+                
+                // Close sidebar on mobile
+                if (window.innerWidth <= 992) {
+                    adminSidebar.classList.remove('active');
+                }
+            });
+        });
+        
+        // Show section function
+        window.showSection = function(sectionId) {
+            const menuItem = document.querySelector(`.menu-item[data-section="${sectionId}"]`);
+            if (menuItem) {
+                menuItem.click();
+            }
+        };
+        
+        // Image Upload
+        const imageUpload = document.getElementById('image-upload');
+        const uploadedImages = document.getElementById('uploaded-images');
+        
+        if (imageUpload) {
+            imageUpload.addEventListener('click', function() {
+                document.getElementById('image-input').click();
+            });
+        }
+        
+        function previewImage(event) {
+            const files = event.target.files;
+            const previewContainer = document.getElementById('uploaded-images');
+            previewContainer.innerHTML = '';
+            
+            for (let i = 0; i < Math.min(files.length, 5); i++) {
+                const file = files[i];
+                if (!file.type.match('image.*')) continue;
+                
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const imageDiv = document.createElement('div');
+                    imageDiv.style.position = 'relative';
+                    imageDiv.style.borderRadius = 'var(--radius-md)';
+                    imageDiv.style.overflow = 'hidden';
+                    imageDiv.style.width = '100px';
+                    imageDiv.style.height = '100px';
+                    
+                    const img = document.createElement('img');
+                    img.src = e.target.result;
+                    img.style.width = '100%';
+                    img.style.height = '100%';
+                    img.style.objectFit = 'cover';
+                    
+                    const removeBtn = document.createElement('button');
+                    removeBtn.innerHTML = '<i class="fas fa-times"></i>';
+                    removeBtn.style.position = 'absolute';
+                    removeBtn.style.top = '5px';
+                    removeBtn.style.right = '5px';
+                    removeBtn.style.width = '24px';
+                    removeBtn.style.height = '24px';
+                    removeBtn.style.background = 'rgba(239, 68, 68, 0.9)';
+                    removeBtn.style.color = 'white';
+                    removeBtn.style.borderRadius = '50%';
+                    removeBtn.style.display = 'flex';
+                    removeBtn.style.alignItems = 'center';
+                    removeBtn.style.justifyContent = 'center';
+                    removeBtn.style.border = 'none';
+                    removeBtn.style.cursor = 'pointer';
+                    removeBtn.style.fontSize = '10px';
+                    
+                    removeBtn.addEventListener('click', function() {
+                        imageDiv.remove();
+                    });
+                    
+                    imageDiv.appendChild(img);
+                    imageDiv.appendChild(removeBtn);
+                    previewContainer.appendChild(imageDiv);
+                };
+                
+                reader.readAsDataURL(file);
+            }
+        }
+        
+        // Form Submissions
+        const addProductForm = document.getElementById('add-product-form');
+        if (addProductForm) {
+            addProductForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const formData = new FormData(this);
+                const submitBtn = this.querySelector('button[type="submit"]');
+                const originalHtml = submitBtn.innerHTML;
+                
+                // Show loading state
+                submitBtn.innerHTML = `
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <span>Сохранение...</span>
+                `;
+                submitBtn.disabled = true;
+                
+                try {
+                    const response = await fetch(this.action, {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'Accept': 'application/json'
+                        }
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        showNotification(data.message || 'Товар успешно добавлен', 'success');
+                        setTimeout(() => {
+                            showSection('products');
+                        }, 1500);
+                    } else {
+                        showNotification(data.message || 'Ошибка при добавлении товара', 'error');
+                        submitBtn.innerHTML = originalHtml;
+                        submitBtn.disabled = false;
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    showNotification('Ошибка сети', 'error');
+                    submitBtn.innerHTML = originalHtml;
+                    submitBtn.disabled = false;
+                }
+            });
+        }
+        
+        const settingsForm = document.getElementById('settings-form');
+        if (settingsForm) {
+            settingsForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const formData = new FormData(this);
+                const submitBtn = this.querySelector('button[type="submit"]');
+                const originalHtml = submitBtn.innerHTML;
+                
+                // Show loading state
+                submitBtn.innerHTML = `
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <span>Сохранение...</span>
+                `;
+                submitBtn.disabled = true;
+                
+                try {
+                    const response = await fetch(this.action, {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        showNotification('Настройки успешно сохранены', 'success');
+                    } else {
+                        showNotification(data.message || 'Ошибка при сохранении настроек', 'error');
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    showNotification('Ошибка сети', 'error');
+                } finally {
+                    submitBtn.innerHTML = originalHtml;
+                    submitBtn.disabled = false;
+                }
+            });
+        }
+        
+        // Product Management Functions
+        window.editProduct = async function(productId) {
+            try {
+                const response = await fetch(`/api/admin/products/${productId}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Populate form with product data
+                    const product = data.product;
+                    showSection('add-product');
+                    
+                    // TODO: Populate the add product form with existing data
+                    showNotification('Форма редактирования товара будет доступна в следующей версии', 'info');
+                } else {
+                    showNotification(data.message || 'Ошибка загрузки товара', 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showNotification('Ошибка сети', 'error');
+            }
+        };
+        
+        window.viewProduct = function(productId) {
+            window.open(`/product/${productId}`, '_blank');
+        };
+        
+        window.deleteProduct = async function(productId) {
+            if (!confirm('Вы уверены, что хотите удалить этот товар? Это действие нельзя отменить.')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/admin/products/${productId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showNotification('Товар успешно удален', 'success');
+                    // Remove from table
+                    const row = document.querySelector(`tr[data-product-id="${productId}"]`);
+                    if (row) {
+                        row.remove();
+                    }
+                } else {
+                    showNotification(data.message || 'Ошибка удаления товара', 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showNotification('Ошибка сети', 'error');
+            }
+        };
+        
+        window.loadMoreProducts = async function() {
+            currentProductPage++;
+            try {
+                const response = await fetch(`/api/products?page=${currentProductPage}&limit=20`);
+                const data = await response.json();
+                
+                if (data.success && data.products.length > 0) {
+                    const tableBody = document.getElementById('products-table-body');
+                    data.products.forEach(product => {
+                        const row = createProductRow(product);
+                        tableBody.appendChild(row);
+                    });
+                    
+                    if (data.products.length < 20) {
+                        showNotification('Все товары загружены', 'info');
+                    }
+                } else {
+                    showNotification('Больше товаров нет', 'info');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showNotification('Ошибка загрузки товаров', 'error');
+            }
+        };
+        
+        function createProductRow(product) {
+            const row = document.createElement('tr');
+            row.setAttribute('data-product-id', product.id);
+            
+            row.innerHTML = `
+                <td>#${product.article}</td>
+                <td>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <div style="width: 50px; height: 50px; background: var(--surface-bg); border-radius: var(--radius-md); overflow: hidden;">
+                            <img src="${product.image_url || '/static/img/placeholder.jpg'}" alt="${product.name}" style="width: 100%; height: 100%; object-fit: cover;">
+                        </div>
+                        <div>
+                            <div style="font-weight: 600; color: var(--text-primary);">${product.name.substring(0, 30)}${product.name.length > 30 ? '...' : ''}</div>
+                            <div style="font-size: 0.85rem; color: var(--text-tertiary);">Арт: ${product.article}</div>
+                        </div>
+                    </div>
+                </td>
+                <td>${product.category}</td>
+                <td>
+                    <div style="font-weight: 700; color: var(--gold);">${formatPrice(product.price)} ₽</div>
+                    ${product.old_price && product.old_price > product.price ? `<div style="text-decoration: line-through; color: var(--text-tertiary); font-size: 0.85rem;">${formatPrice(product.old_price)} ₽</div>` : ''}
+                </td>
+                <td>
+                    ${product.stock === 0 ? `<span style="color: #ef4444; font-weight: 600;">0 шт.</span>` : 
+                      product.stock <= 5 ? `<span style="color: #f59e0b; font-weight: 600;">${product.stock} шт.</span>` : 
+                      `<span style="color: #10b981; font-weight: 600;">${product.stock} шт.</span>`}
+                </td>
+                <td>
+                    ${product.is_active ? `<span class="status-badge status-active">Активен</span>` : `<span class="status-badge status-inactive">Неактивен</span>`}
+                </td>
+                <td>
+                    <div class="action-buttons">
+                        <button class="btn-icon edit" title="Редактировать" onclick="editProduct(${product.id})">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn-icon" title="Просмотреть" onclick="viewProduct(${product.id})">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <button class="btn-icon delete" title="Удалить" onclick="deleteProduct(${product.id})">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            `;
+            
+            return row;
+        }
+        
+        // Order Management Functions
+        window.editOrder = async function(orderId) {
+            try {
+                const response = await fetch(`/api/admin/orders/${orderId}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Show order edit modal
+                    showOrderModal(data.order, 'edit');
+                } else {
+                    showNotification(data.message || 'Ошибка загрузки заказа', 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showNotification('Ошибка сети', 'error');
+            }
+        };
+        
+        window.viewOrder = async function(orderId) {
+            try {
+                const response = await fetch(`/api/admin/orders/${orderId}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Show order view modal
+                    showOrderModal(data.order, 'view');
+                } else {
+                    showNotification(data.message || 'Ошибка загрузки заказа', 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showNotification('Ошибка сети', 'error');
+            }
+        };
+        
+        window.printOrder = function(orderId) {
+            window.open(`/admin/orders/${orderId}/print`, '_blank');
+        };
+        
+        window.loadMoreOrders = async function() {
+            currentOrderPage++;
+            try {
+                const response = await fetch(`/api/admin/orders?page=${currentOrderPage}&limit=20`);
+                const data = await response.json();
+                
+                if (data.success && data.orders.length > 0) {
+                    const tableBody = document.getElementById('orders-table-body');
+                    data.orders.forEach(order => {
+                        const row = createOrderRow(order);
+                        tableBody.appendChild(row);
+                    });
+                    
+                    if (data.orders.length < 20) {
+                        showNotification('Все заказы загружены', 'info');
+                    }
+                } else {
+                    showNotification('Больше заказов нет', 'info');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showNotification('Ошибка загрузки заказов', 'error');
+            }
+        };
+        
+        function createOrderRow(order) {
+            const row = document.createElement('tr');
+            
+            let statusBadge;
+            switch(order.status) {
+                case 'new': statusBadge = '<span class="status-badge status-pending">В ожидании</span>'; break;
+                case 'processing': statusBadge = '<span class="status-badge status-pending">Обрабатывается</span>'; break;
+                case 'shipped': statusBadge = '<span class="status-badge status-pending">Отправлен</span>'; break;
+                case 'delivered': statusBadge = '<span class="status-badge status-completed">Доставлен</span>'; break;
+                case 'cancelled': statusBadge = '<span class="status-badge status-inactive">Отменен</span>'; break;
+                default: statusBadge = `<span class="status-badge status-pending">${order.status}</span>`;
+            }
+            
+            let paymentIcon;
+            switch(order.payment_method) {
+                case 'card': paymentIcon = '<i class="fab fa-cc-visa" style="color: #1a1f71;"></i> Карта'; break;
+                case 'cash': paymentIcon = '<i class="fas fa-money-bill-wave" style="color: #10b981;"></i> Наличные'; break;
+                default: paymentIcon = `<i class="fas fa-credit-card" style="color: var(--text-tertiary);"></i> ${order.payment_method || 'Не указано'}`;
+            }
+            
+            row.innerHTML = `
+                <td class="order-id">${order.order_number}</td>
+                <td>
+                    <div style="font-weight: 600; color: var(--text-primary);">
+                        ${order.user ? order.user.first_name : 'Неизвестно'}
+                    </div>
+                    <div style="font-size: 0.85rem; color: var(--text-tertiary);">
+                        ${order.user && order.user.email ? order.user.email : 'Нет email'}
+                    </div>
+                </td>
+                <td>${new Date(order.created_at).toLocaleDateString('ru-RU')}</td>
+                <td>
+                    <div style="font-weight: 700; color: var(--gold);">${formatPrice(order.final_amount)} ₽</div>
+                </td>
+                <td>${statusBadge}</td>
+                <td>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        ${paymentIcon}
+                    </div>
+                </td>
+                <td>
+                    <div class="action-buttons">
+                        <button class="btn-icon edit" title="Редактировать" onclick="editOrder(${order.id})">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn-icon" title="Просмотреть" onclick="viewOrder(${order.id})">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <button class="btn-icon" title="Печать" onclick="printOrder(${order.id})">
+                            <i class="fas fa-print"></i>
+                        </button>
+                    </div>
+                </td>
+            `;
+            
+            return row;
+        }
+        
+        // Customer Management Functions
+        window.editCustomer = async function(userId) {
+            try {
+                const response = await fetch(`/api/admin/users/${userId}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Show customer edit modal
+                    showCustomerModal(data.user, 'edit');
+                } else {
+                    showNotification(data.message || 'Ошибка загрузки клиента', 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showNotification('Ошибка сети', 'error');
+            }
+        };
+        
+        window.viewCustomer = async function(userId) {
+            try {
+                const response = await fetch(`/api/admin/users/${userId}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Show customer view modal
+                    showCustomerModal(data.user, 'view');
+                } else {
+                    showNotification(data.message || 'Ошибка загрузки клиента', 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showNotification('Ошибка сети', 'error');
+            }
+        };
+        
+        window.sendEmailToCustomer = function(userId) {
+            const email = prompt('Введите email для отправки:', '');
+            if (email) {
+                showNotification(`Письмо будет отправлено на ${email}`, 'info');
+            }
+        };
+        
+        window.loadMoreCustomers = async function() {
+            currentCustomerPage++;
+            try {
+                const response = await fetch(`/api/admin/users?page=${currentCustomerPage}&limit=20`);
+                const data = await response.json();
+                
+                if (data.success && data.users.length > 0) {
+                    const tableBody = document.getElementById('customers-table-body');
+                    data.users.forEach(user => {
+                        const row = createCustomerRow(user);
+                        tableBody.appendChild(row);
+                    });
+                    
+                    if (data.users.length < 20) {
+                        showNotification('Все клиенты загружены', 'info');
+                    }
+                } else {
+                    showNotification('Больше клиентов нет', 'info');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showNotification('Ошибка загрузки клиентов', 'error');
+            }
+        };
+        
+        function createCustomerRow(user) {
+            const row = document.createElement('tr');
+            
+            row.innerHTML = `
+                <td>#CUST-${user.id.toString().padStart(4, '0')}</td>
+                <td>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <div style="width: 40px; height: 40px; background: linear-gradient(135deg, var(--gold) 0%, var(--rose-gold) 100%); border-radius: var(--radius-full); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600;">
+                            ${user.first_name ? user.first_name[0] : '?'}
+                        </div>
+                        <div>
+                            <div style="font-weight: 600; color: var(--text-primary);">${user.first_name || ''} ${user.last_name || ''}</div>
+                            <div style="font-size: 0.85rem; color: var(--text-tertiary);">
+                                ${user.is_vip ? 'VIP Platinum' : 'Стандарт'}
+                            </div>
+                        </div>
+                    </div>
+                </td>
+                <td>${user.email || 'Нет email'}</td>
+                <td>${user.phone || 'Нет телефона'}</td>
+                <td>${user.total_orders || 0}</td>
+                <td>${formatPrice(user.total_spent || 0)} ₽</td>
+                <td>
+                    ${user.is_active !== false ? `<span class="status-badge status-active">Активен</span>` : `<span class="status-badge status-inactive">Неактивен</span>`}
+                </td>
+                <td>
+                    <div class="action-buttons">
+                        <button class="btn-icon edit" title="Редактировать" onclick="editCustomer(${user.id})">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn-icon" title="Просмотреть" onclick="viewCustomer(${user.id})">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <button class="btn-icon" title="Отправить email" onclick="sendEmailToCustomer(${user.id})">
+                            <i class="fas fa-envelope"></i>
+                        </button>
+                    </div>
+                </td>
+            `;
+            
+            return row;
+        }
+        
+        // Activity Functions
+        async function loadActivity() {
+            try {
+                const response = await fetch('/api/admin/activity');
+                const data = await response.json();
+                
+                if (data.success && data.activities.length > 0) {
+                    const activityList = document.getElementById('activity-list');
+                    activityList.innerHTML = '';
+                    
+                    data.activities.forEach(activity => {
+                        const activityItem = createActivityItem(activity);
+                        activityList.appendChild(activityItem);
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading activity:', error);
+            }
+        }
+        
+        function createActivityItem(activity) {
+            const div = document.createElement('div');
+            div.className = 'activity-item';
+            
+            let icon, title, time;
+            
+            switch(activity.type) {
+                case 'order':
+                    icon = 'fa-shopping-cart';
+                    title = `Новый заказ ${activity.data.order_number}`;
+                    time = `${activity.time} • ${formatPrice(activity.data.amount)} ₽`;
+                    break;
+                case 'user':
+                    icon = 'fa-user-plus';
+                    title = `Новый ${activity.data.is_vip ? 'VIP ' : ''}клиент зарегистрирован`;
+                    time = `${activity.time} • ${activity.data.name}`;
+                    break;
+                case 'stock':
+                    icon = 'fa-box';
+                    title = `Товар "${activity.data.product_name}" закончился`;
+                    time = `${activity.time} • Остаток: 0 шт.`;
+                    break;
+                case 'review':
+                    icon = 'fa-star';
+                    title = `Новый отзыв на ${activity.data.rating} звезд`;
+                    time = `${activity.time} • ${activity.data.user_name}`;
+                    break;
+                case 'delivery':
+                    icon = 'fa-truck';
+                    title = `Заказ ${activity.data.order_number} отправлен`;
+                    time = `${activity.time} • Курьер: ${activity.data.courier}`;
+                    break;
+                default:
+                    icon = 'fa-bell';
+                    title = activity.title;
+                    time = activity.time;
+            }
+            
+            div.innerHTML = `
+                <div class="activity-icon">
+                    <i class="fas ${icon}"></i>
+                </div>
+                <div class="activity-content">
+                    <div class="activity-title">${title}</div>
+                    <div class="activity-time">${time}</div>
+                </div>
+            `;
+            
+            return div;
+        }
+        
+        window.refreshActivity = function() {
+            loadActivity();
+            showNotification('Активность обновлена', 'success');
+        };
+        
+        // Chart Functions
+        function initializeSalesChart() {
+            const ctx = document.getElementById('sales-chart').getContext('2d');
+            
+            // Sample data
+            const labels = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек'];
+            const data = {
+                labels: labels,
+                datasets: [{
+                    label: 'Продажи (₽)',
+                    data: [6500000, 5900000, 8000000, 8100000, 5600000, 5500000, 4000000, 7800000, 8200000, 9000000, 8500000, 9200000],
+                    backgroundColor: 'rgba(212, 175, 55, 0.2)',
+                    borderColor: 'rgba(212, 175, 55, 1)',
+                    borderWidth: 2,
+                    tension: 0.4,
+                    fill: true
+                }]
+            };
+            
+            salesChart = new Chart(ctx, {
+                type: 'line',
+                data: data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `Продажи: ${formatPrice(context.raw)} ₽`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return formatPrice(value) + ' ₽';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        window.updateSalesChart = function(period) {
+            if (salesChart) {
+                // Update chart based on period
+                let labels, data;
+                
+                switch(period) {
+                    case 'week':
+                        labels = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+                        data = [1200000, 1900000, 3000000, 5000000, 2000000, 3000000, 4500000];
+                        break;
+                    case 'year':
+                        labels = ['2022', '2023', '2024'];
+                        data = [45000000, 68000000, 92000000];
+                        break;
+                    default: // month
+                        labels = ['1', '5', '10', '15', '20', '25', '30'];
+                        data = [1500000, 3000000, 2500000, 4000000, 3500000, 5000000, 4500000];
+                }
+                
+                salesChart.data.labels = labels;
+                salesChart.data.datasets[0].data = data;
+                salesChart.update();
+            }
+        };
+        
+        // Utility Functions
+        function formatPrice(price) {
+            return new Intl.NumberFormat('ru-RU').format(Math.round(price));
+        }
+        
+        function showNotification(message, type = 'info') {
+            if (typeof window.showNotification === 'function') {
+                window.showNotification(message, type);
+            } else {
+                // Fallback notification
+                const notification = document.createElement('div');
+                notification.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    padding: 15px 20px;
+                    background: ${type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : type === 'warning' ? '#f59e0b' : '#d4af37'};
+                    color: white;
+                    border-radius: var(--radius-lg);
+                    box-shadow: var(--shadow-lg);
+                    z-index: 9999;
+                    transform: translateX(150%);
+                    transition: transform 0.3s ease;
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                `;
+                
+                notification.innerHTML = `
+                    <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : type === 'warning' ? 'exclamation-triangle' : 'info-circle'}"></i>
+                    <span>${message}</span>
+                `;
+                
+                document.body.appendChild(notification);
+                
+                setTimeout(() => {
+                    notification.style.transform = 'translateX(0)';
+                }, 10);
+                
+                setTimeout(() => {
+                    notification.style.transform = 'translateX(150%)';
+                    setTimeout(() => {
+                        notification.remove();
+                    }, 300);
+                }, 3000);
+            }
+        }
+        
+        // Initialize activity on page load
+        loadActivity();
+        
+        // Add keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            // Ctrl + / for search focus
+            if (e.ctrlKey && e.key === '/') {
+                e.preventDefault();
+                const searchInput = document.querySelector('.search-input');
+                if (searchInput) {
+                    searchInput.focus();
+                }
+            }
+            
+            // Ctrl + D for dashboard
+            if (e.ctrlKey && e.key === 'd') {
+                e.preventDefault();
+                showSection('dashboard');
+            }
+            
+            // Ctrl + P for products
+            if (e.ctrlKey && e.key === 'p') {
+                e.preventDefault();
+                showSection('products');
+            }
+            
+            // Ctrl + O for orders
+            if (e.ctrlKey && e.key === 'o') {
+                e.preventDefault();
+                showSection('orders');
+            }
+            
+            // Ctrl + S for settings
+            if (e.ctrlKey && e.key === 's') {
+                e.preventDefault();
+                showSection('settings');
+            }
+            
+            // Escape to close sidebar on mobile
+            if (e.key === 'Escape' && window.innerWidth <= 992) {
+                adminSidebar.classList.remove('active');
+            }
+        });
+        
+        console.log('Admin panel initialized');
+    });
+    
+    // Modal Functions
+    function showOrderModal(order, mode = 'view') {
+        // Create modal
+        const modal = createModal({
+            title: `Заказ ${order.order_number}`,
+            size: 'lg'
+        });
+        
+        let content = `
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
+                <div>
+                    <h4 style="margin-bottom: 15px; color: var(--text-primary);">Информация о заказе</h4>
+                    <div style="background: var(--surface-bg); padding: 20px; border-radius: var(--radius-lg);">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
+                            <div>
+                                <div style="font-size: 0.85rem; color: var(--text-tertiary);">Номер заказа</div>
+                                <div style="font-weight: 600; color: var(--text-primary);">${order.order_number}</div>
+                            </div>
+                            <div>
+                                <div style="font-size: 0.85rem; color: var(--text-tertiary);">Дата</div>
+                                <div style="font-weight: 600; color: var(--text-primary);">${new Date(order.created_at).toLocaleDateString('ru-RU')}</div>
+                            </div>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
+                            <div>
+                                <div style="font-size: 0.85rem; color: var(--text-tertiary);">Статус</div>
+                                <div style="font-weight: 600; color: var(--text-primary);">${order.status}</div>
+                            </div>
+                            <div>
+                                <div style="font-size: 0.85rem; color: var(--text-tertiary);">Способ оплаты</div>
+                                <div style="font-weight: 600; color: var(--text-primary);">${order.payment_method}</div>
+                            </div>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                            <div>
+                                <div style="font-size: 0.85rem; color: var(--text-tertiary);">Доставка</div>
+                                <div style="font-weight: 600; color: var(--text-primary);">${order.delivery_type}</div>
+                            </div>
+                            <div>
+                                <div style="font-size: 0.85rem; color: var(--text-tertiary);">Адрес</div>
+                                <div style="font-weight: 600; color: var(--text-primary);">${order.delivery_address || 'Не указан'}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <h4 style="margin-bottom: 15px; color: var(--text-primary);">Сумма заказа</h4>
+                    <div style="background: var(--surface-bg); padding: 20px; border-radius: var(--radius-lg);">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                            <span style="color: var(--text-secondary);">Товары:</span>
+                            <span style="font-weight: 600; color: var(--text-primary);">${formatPrice(order.total_amount)} ₽</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                            <span style="color: var(--text-secondary);">Доставка:</span>
+                            <span style="font-weight: 600; color: var(--text-primary);">${formatPrice(order.delivery_cost)} ₽</span>
+                        </div>
+                        ${order.discount_amount > 0 ? `
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                            <span style="color: var(--text-secondary);">Скидка:</span>
+                            <span style="font-weight: 600; color: #10b981;">-${formatPrice(order.discount_amount)} ₽</span>
+                        </div>
+                        ` : ''}
+                        <div style="display: flex; justify-content: space-between; margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border-color);">
+                            <span style="font-weight: 700; color: var(--text-primary);">Итого:</span>
+                            <span style="font-weight: 700; color: var(--gold); font-size: 1.2rem;">${formatPrice(order.final_amount)} ₽</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        modal.body.innerHTML = content;
+        
+        if (mode === 'edit') {
+            modal.footer.innerHTML = `
+                <button class="btn-secondary" onclick="this.closest('.modal').remove()">
+                    <i class="fas fa-times"></i>
+                    <span>Отмена</span>
+                </button>
+                <button class="btn-primary" onclick="saveOrder(${order.id})">
+                    <i class="fas fa-save"></i>
+                    <span>Сохранить изменения</span>
+                </button>
+            `;
+        }
+    }
+    
+    function showCustomerModal(user, mode = 'view') {
+        // Create modal
+        const modal = createModal({
+            title: `Клиент: ${user.first_name} ${user.last_name || ''}`,
+            size: 'md'
+        });
+        
+        let content = `
+            <div style="display: grid; gap: 20px;">
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <div style="width: 60px; height: 60px; background: linear-gradient(135deg, var(--gold) 0%, var(--rose-gold) 100%); border-radius: var(--radius-full); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 1.5rem;">
+                        ${user.first_name ? user.first_name[0] : '?'}
+                    </div>
+                    <div>
+                        <h4 style="margin: 0; color: var(--text-primary);">${user.first_name} ${user.last_name || ''}</h4>
+                        <p style="margin: 5px 0 0; color: var(--text-tertiary); font-size: 0.9rem;">
+                            ${user.is_vip ? 'VIP клиент' : 'Стандартный клиент'}
+                        </p>
+                    </div>
+                </div>
+                
+                <div style="background: var(--surface-bg); padding: 20px; border-radius: var(--radius-lg);">
+                    <h5 style="margin-top: 0; margin-bottom: 15px; color: var(--text-primary);">Контактная информация</h5>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div>
+                            <div style="font-size: 0.85rem; color: var(--text-tertiary);">Email</div>
+                            <div style="font-weight: 600; color: var(--text-primary);">${user.email || 'Не указан'}</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.85rem; color: var(--text-tertiary);">Телефон</div>
+                            <div style="font-weight: 600; color: var(--text-primary);">${user.phone || 'Не указан'}</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.85rem; color: var(--text-tertiary);">Telegram ID</div>
+                            <div style="font-weight: 600; color: var(--text-primary);">${user.telegram_id || 'Не указан'}</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.85rem; color: var(--text-tertiary);">Реферальный код</div>
+                            <div style="font-weight: 600; color: var(--text-primary);">${user.referral_code || 'Нет'}</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="background: var(--surface-bg); padding: 20px; border-radius: var(--radius-lg);">
+                    <h5 style="margin-top: 0; margin-bottom: 15px; color: var(--text-primary);">Статистика</h5>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div>
+                            <div style="font-size: 0.85rem; color: var(--text-tertiary);">Всего заказов</div>
+                            <div style="font-weight: 600; color: var(--text-primary); font-size: 1.2rem;">${user.total_orders || 0}</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.85rem; color: var(--text-tertiary);">Общая сумма</div>
+                            <div style="font-weight: 600; color: var(--gold); font-size: 1.2rem;">${formatPrice(user.total_spent || 0)} ₽</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.85rem; color: var(--text-tertiary);">Дата регистрации</div>
+                            <div style="font-weight: 600; color: var(--text-primary);">${new Date(user.created_at).toLocaleDateString('ru-RU')}</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.85rem; color: var(--text-tertiary);">Последняя активность</div>
+                            <div style="font-weight: 600; color: var(--text-primary);">${user.last_activity ? new Date(user.last_activity).toLocaleDateString('ru-RU') : 'Неизвестно'}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        modal.body.innerHTML = content;
+        
+        if (mode === 'edit') {
+            modal.footer.innerHTML = `
+                <button class="btn-secondary" onclick="this.closest('.modal').remove()">
+                    <i class="fas fa-times"></i>
+                    <span>Отмена</span>
+                </button>
+                <button class="btn-primary" onclick="saveCustomer(${user.id})">
+                    <i class="fas fa-save"></i>
+                    <span>Сохранить изменения</span>
+                </button>
+            `;
+        }
+    }
+    
+    function createModal(options = {}) {
+        const { title = 'Модальное окно', size = 'md' } = options;
+        
+        // Remove existing modal
+        const existingModal = document.querySelector('.modal-overlay');
+        if (existingModal) {
+            existingModal.remove();
+        }
+        
+        // Create modal overlay
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            padding: 20px;
+        `;
+        
+        // Create modal
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        modal.style.cssText = `
+            background: var(--card-bg);
+            border-radius: var(--radius-xl);
+            width: ${size === 'lg' ? '800px' : size === 'sm' ? '400px' : '600px'};
+            max-width: 100%;
+            max-height: 90vh;
+            overflow: hidden;
+            transform: translateY(20px);
+            transition: transform 0.3s ease;
+            box-shadow: var(--shadow-xl);
+        `;
+        
+        // Modal header
+        const header = document.createElement('div');
+        header.style.cssText = `
+            padding: 20px 30px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        `;
+        
+        header.innerHTML = `
+            <h3 style="margin: 0; color: var(--text-primary);">${title}</h3>
+            <button class="modal-close" style="background: none; border: none; color: var(--text-tertiary); cursor: pointer; font-size: 1.2rem;">
+                <i class="fas fa-times"></i>
+            </button>
+        `;
+        
+        // Modal body
+        const body = document.createElement('div');
+        body.className = 'modal-body';
+        body.style.cssText = `
+            padding: 30px;
+            max-height: calc(90vh - 140px);
+            overflow-y: auto;
+        `;
+        
+        // Modal footer
+        const footer = document.createElement('div');
+        footer.className = 'modal-footer';
+        footer.style.cssText = `
+            padding: 20px 30px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: flex-end;
+            gap: 15px;
+        `;
+        
+        // Assemble modal
+        modal.appendChild(header);
+        modal.appendChild(body);
+        modal.appendChild(footer);
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+        
+        // Show with animation
+        setTimeout(() => {
+            overlay.style.opacity = '1';
+            modal.style.transform = 'translateY(0)';
+        }, 10);
+        
+        // Close button
+        header.querySelector('.modal-close').addEventListener('click', () => {
+            overlay.style.opacity = '0';
+            modal.style.transform = 'translateY(20px)';
+            setTimeout(() => {
+                overlay.remove();
+            }, 300);
+        });
+        
+        // Close on overlay click
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+                overlay.style.opacity = '0';
+                modal.style.transform = 'translateY(20px)';
+                setTimeout(() => {
+                    overlay.remove();
+                }, 300);
+            }
+        });
+        
+        return { overlay, modal, header, body, footer };
+    }
+    
+    function formatPrice(price) {
+        return new Intl.NumberFormat('ru-RU').format(Math.round(price));
+    }
+</script>
+{% endblock %}

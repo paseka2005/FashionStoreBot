@@ -1,0 +1,1459 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    
+    <!-- Основные мета-теги -->
+    <title>{% block title %}{{ shop_name }} | {{ shop_slogan }}{% endblock %}</title>
+    <meta name="description" content="{{ shop_name }} - {{ shop_slogan }}. Люксовая одежда и аксессуары премиум-класса от ведущих мировых дизайнеров.">
+    <meta name="keywords" content="люксовая одежда, премиум бренды, дизайнерская одежда, мода, стиль, элитная одежда, Vogue Elite">
+    <meta name="author" content="{{ shop_name }}">
+    <meta name="robots" content="index, follow">
+    
+    <!-- Open Graph для соцсетей -->
+    <meta property="og:title" content="{{ shop_name }} | {{ shop_slogan }}">
+    <meta property="og:description" content="Эксклюзивная люксовая одежда от ведущих мировых дизайнеров.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="{{ request.url if request else '/' }}">
+    <meta property="og:image" content="{{ url_for('static', filename='img/og-image.jpg') }}">
+    <meta property="og:site_name" content="{{ shop_name }}">
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{{ shop_name }} | {{ shop_slogan }}">
+    <meta name="twitter:description" content="Эксклюзивная люксовая одежда от ведущих мировых дизайнеров.">
+    <meta name="twitter:image" content="{{ url_for('static', filename='img/twitter-image.jpg') }}">
+    
+    <!-- Фавиконки -->
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='img/favicon/apple-touch-icon.png') }}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon/favicon-32x32.png') }}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='img/favicon/favicon-16x16.png') }}">
+    <link rel="manifest" href="{{ url_for('static', filename='img/favicon/site.webmanifest') }}">
+    <link rel="mask-icon" href="{{ url_for('static', filename='img/favicon/safari-pinned-tab.svg') }}" color="#d4af37">
+    <meta name="msapplication-TileColor" content="#1a1a1a">
+    <meta name="theme-color" content="#1a1a1a">
+    
+    <!-- Основные CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css">
+    
+    <!-- Дополнительные стили -->
+    {% block extra_css %}{% endblock %}
+    
+    <!-- Конфигурация для JavaScript -->
+    <script type="application/json" id="app-config">
+    {
+        "shop_name": "{{ shop_name }}",
+        "shop_slogan": "{{ shop_slogan }}",
+        "shop_phone": "{{ shop_phone }}",
+        "shop_email": "{{ shop_email }}",
+        "support_username": "{{ support_username }}",
+        "currency": "{{ currency }}",
+        "free_delivery_threshold": {{ free_delivery_threshold }},
+        "delivery_cost": {{ delivery_cost }},
+        "web_app_url": "{{ web_app_url }}",
+        "api_base": "/api",
+        "is_authenticated": {{ current_user.is_authenticated|lower }},
+        "user_id": {{ current_user.id if current_user.is_authenticated else 0 }},
+        "is_admin": {{ current_user.is_admin|lower if current_user.is_authenticated else 'false' }},
+        "is_vip": {{ current_user.is_vip|lower if current_user.is_authenticated else 'false' }},
+        "cart_count": {{ cart_count }},
+        "cart_total": {{ cart_total }},
+        "debug": false
+    }
+    </script>
+    
+    <!-- Preconnect для оптимизации загрузки -->
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+    <link rel="preconnect" href="https://cdn.jsdelivr.net">
+    <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
+    <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+</head>
+<body class="dark-theme">
+    <!-- Preloader -->
+    <div class="preloader" id="preloader">
+        <div class="preloader-content">
+            <div class="preloader-spinner">
+                <div class="spinner-ring">
+                    <div class="spinner-ring-inner"></div>
+                </div>
+            </div>
+            <div class="preloader-logo">
+                <i class="fas fa-crown preloader-icon"></i>
+                <span class="preloader-title">{{ shop_name }}</span>
+                <span class="preloader-subtitle">{{ shop_slogan }}</span>
+            </div>
+            <div class="preloader-progress">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="preloader-progress"></div>
+                </div>
+                <span class="progress-text" id="preloader-text">Загрузка...</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Менеджер уведомлений -->
+    <div class="notifications-container" id="notifications-container"></div>
+
+    <!-- Основной контейнер -->
+    <div class="app-container">
+        <!-- Главное меню навигации -->
+        <header class="header" id="header">
+            <div class="container">
+                <div class="header-inner">
+                    <!-- Логотип -->
+                    <div class="header-logo">
+                        <a href="{{ url_for('index') }}" class="logo-link" aria-label="{{ shop_name }} - Главная страница">
+                            <div class="logo-symbol">
+                                <i class="fas fa-crown logo-icon"></i>
+                            </div>
+                            <div class="logo-text">
+                                <h1 class="logo-title">{{ shop_name }}</h1>
+                                <span class="logo-tagline">{{ shop_slogan }}</span>
+                            </div>
+                        </a>
+                    </div>
+
+                    <!-- Основная навигация -->
+                    <nav class="main-nav" id="main-nav">
+                        <ul class="nav-list">
+                            <li class="nav-item">
+                                <a href="{{ url_for('index') }}" class="nav-link {% if request.endpoint == 'index' %}active{% endif %}" data-nav-link>
+                                    <i class="fas fa-home nav-icon"></i>
+                                    <span class="nav-text">Главная</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="{{ url_for('catalog_page') }}" class="nav-link {% if request.endpoint == 'catalog_page' %}active{% endif %}" data-nav-link>
+                                    <i class="fas fa-tshirt nav-icon"></i>
+                                    <span class="nav-text">Каталог</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="{{ url_for('cart_page') }}" class="nav-link cart-link {% if request.endpoint == 'cart_page' %}active{% endif %}" data-nav-link>
+                                    <i class="fas fa-shopping-bag nav-icon"></i>
+                                    <span class="nav-text">Корзина</span>
+                                    {% if current_user.is_authenticated and cart_count > 0 %}
+                                    <span class="cart-badge" id="cart-badge">{{ cart_count }}</span>
+                                    {% endif %}
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="{{ url_for('orders') }}" class="nav-link {% if request.endpoint == 'orders' %}active{% endif %}" data-nav-link>
+                                    <i class="fas fa-history nav-icon"></i>
+                                    <span class="nav-text">Заказы</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="{{ url_for('profile') }}" class="nav-link {% if request.endpoint == 'profile' %}active{% endif %}" data-nav-link>
+                                    <i class="fas fa-user nav-icon"></i>
+                                    <span class="nav-text">Профиль</span>
+                                </a>
+                            </li>
+                            {% if current_user.is_authenticated and current_user.is_admin %}
+                            <li class="nav-item">
+                                <a href="{{ url_for('admin_panel') }}" class="nav-link admin-link {% if request.endpoint == 'admin_panel' %}active{% endif %}" data-nav-link>
+                                    <i class="fas fa-cog nav-icon"></i>
+                                    <span class="nav-text">Админ</span>
+                                </a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+
+                    <!-- Действия пользователя -->
+                    <div class="header-actions">
+                        <!-- Поиск -->
+                        <div class="search-container" id="search-container">
+                            <button class="search-toggle" id="search-toggle" aria-label="Поиск">
+                                <i class="fas fa-search search-icon"></i>
+                            </button>
+                            <div class="search-dropdown" id="search-dropdown">
+                                <div class="search-box">
+                                    <input type="text" 
+                                           class="search-input" 
+                                           id="global-search-input"
+                                           placeholder="Поиск товаров..."
+                                           aria-label="Поиск товаров">
+                                    <button class="search-submit" id="search-submit" aria-label="Найти">
+                                        <i class="fas fa-search"></i>
+                                    </button>
+                                    <button class="search-clear" id="search-clear" aria-label="Очистить поиск">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                                <div class="search-results" id="search-results"></div>
+                            </div>
+                        </div>
+
+                        <!-- Избранное -->
+                        <div class="wishlist-container">
+                            <a href="{{ url_for('wishlist_page') if current_user.is_authenticated else url_for('login') }}" 
+                               class="wishlist-link" 
+                               id="wishlist-link"
+                               aria-label="Избранное">
+                                <i class="fas fa-heart wishlist-icon"></i>
+                                <span class="wishlist-badge" id="wishlist-badge">0</span>
+                            </a>
+                        </div>
+
+                        <!-- Сравнение -->
+                        <div class="compare-container">
+                            <a href="{{ url_for('compare_page') if current_user.is_authenticated else url_for('login') }}" 
+                               class="compare-link" 
+                               id="compare-link"
+                               aria-label="Сравнение товаров">
+                                <i class="fas fa-exchange-alt compare-icon"></i>
+                                <span class="compare-badge" id="compare-badge">0</span>
+                            </a>
+                        </div>
+
+                        <!-- Меню пользователя -->
+                        <div class="user-menu" id="user-menu">
+                            {% if current_user.is_authenticated %}
+                            <button class="user-menu-toggle" id="user-menu-toggle" aria-label="Меню пользователя" aria-expanded="false">
+                                <div class="user-avatar">
+                                    {% if current_user.telegram_id %}
+                                    <img src="https://api.telegram.org/file/bot{{ config.TELEGRAM_BOT_TOKEN if config.TELEGRAM_BOT_TOKEN else 'bot' }}/photos/{{ current_user.telegram_id }}.jpg" 
+                                         alt="{{ current_user.first_name }}" 
+                                         class="avatar-image"
+                                         onerror="this.src='{{ url_for('static', filename='img/users/default.jpg') }}'">
+                                    {% else %}
+                                    <div class="avatar-placeholder">
+                                        <i class="fas fa-user-circle avatar-icon"></i>
+                                    </div>
+                                    {% endif %}
+                                    {% if current_user.is_vip %}
+                                    <span class="vip-badge" title="VIP клиент">
+                                        <i class="fas fa-crown"></i>
+                                    </span>
+                                    {% endif %}
+                                </div>
+                                <div class="user-info">
+                                    <span class="user-name">{{ current_user.first_name }}</span>
+                                    <span class="user-status {% if current_user.is_vip %}vip-status{% else %}standard-status{% endif %}">
+                                        {% if current_user.is_vip %}VIP{% else %}Стандарт{% endif %}
+                                    </span>
+                                </div>
+                                <i class="fas fa-chevron-down dropdown-arrow"></i>
+                            </button>
+                            <div class="user-dropdown" id="user-dropdown">
+                                <div class="dropdown-header">
+                                    <div class="dropdown-avatar">
+                                        {% if current_user.telegram_id %}
+                                        <img src="https://api.telegram.org/file/bot{{ config.TELEGRAM_BOT_TOKEN if config.TELEGRAM_BOT_TOKEN else 'bot' }}/photos/{{ current_user.telegram_id }}.jpg" 
+                                             alt="{{ current_user.first_name }}"
+                                             onerror="this.src='{{ url_for('static', filename='img/users/default.jpg') }}'">
+                                        {% else %}
+                                        <i class="fas fa-user-circle"></i>
+                                        {% endif %}
+                                    </div>
+                                    <div class="dropdown-user-info">
+                                        <h4 class="dropdown-user-name">{{ current_user.first_name }} {{ current_user.last_name }}</h4>
+                                        <p class="dropdown-user-email">{{ current_user.email or 'Email не указан' }}</p>
+                                        <div class="dropdown-user-stats">
+                                            <span class="stat-item">
+                                                <i class="fas fa-shopping-bag"></i>
+                                                <span>{{ current_user.total_orders }} заказов</span>
+                                            </span>
+                                            <span class="stat-item">
+                                                <i class="fas fa-coins"></i>
+                                                <span>{{ format_price(current_user.total_spent) }} потрачено</span>
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="dropdown-divider"></div>
+                                <div class="dropdown-body">
+                                    <a href="{{ url_for('profile') }}" class="dropdown-item">
+                                        <i class="fas fa-user dropdown-icon"></i>
+                                        <span class="dropdown-text">Мой профиль</span>
+                                    </a>
+                                    <a href="{{ url_for('orders') }}" class="dropdown-item">
+                                        <i class="fas fa-history dropdown-icon"></i>
+                                        <span class="dropdown-text">Мои заказы</span>
+                                        {% if current_user.total_orders > 0 %}
+                                        <span class="dropdown-badge">{{ current_user.total_orders }}</span>
+                                        {% endif %}
+                                    </a>
+                                    <a href="{{ url_for('wishlist_page') }}" class="dropdown-item">
+                                        <i class="fas fa-heart dropdown-icon"></i>
+                                        <span class="dropdown-text">Избранное</span>
+                                        <span class="dropdown-badge" id="dropdown-wishlist-count">0</span>
+                                    </a>
+                                    <a href="{{ url_for('compare_page') }}" class="dropdown-item">
+                                        <i class="fas fa-exchange-alt dropdown-icon"></i>
+                                        <span class="dropdown-text">Сравнение</span>
+                                        <span class="dropdown-badge" id="dropdown-compare-count">0</span>
+                                    </a>
+                                    <a href="{{ url_for('notifications_page') }}" class="dropdown-item">
+                                        <i class="fas fa-bell dropdown-icon"></i>
+                                        <span class="dropdown-text">Уведомления</span>
+                                        <span class="dropdown-badge" id="dropdown-notifications-count">0</span>
+                                    </a>
+                                    {% if current_user.is_admin %}
+                                    <div class="dropdown-divider"></div>
+                                    <a href="{{ url_for('admin_panel') }}" class="dropdown-item admin-item">
+                                        <i class="fas fa-cog dropdown-icon"></i>
+                                        <span class="dropdown-text">Админ панель</span>
+                                        <span class="admin-badge">ADMIN</span>
+                                    </a>
+                                    {% endif %}
+                                </div>
+                                <div class="dropdown-divider"></div>
+                                <div class="dropdown-footer">
+                                    <a href="{{ url_for('logout') }}" class="dropdown-item logout-item" id="logout-btn">
+                                        <i class="fas fa-sign-out-alt dropdown-icon"></i>
+                                        <span class="dropdown-text">Выйти</span>
+                                    </a>
+                                </div>
+                            </div>
+                            {% else %}
+                            <div class="auth-buttons">
+                                <a href="{{ url_for('login') }}" class="btn-login" id="login-btn">
+                                    <i class="fas fa-sign-in-alt btn-icon"></i>
+                                    <span class="btn-text">Войти</span>
+                                </a>
+                                <a href="{{ url_for('register') }}" class="btn-register" id="register-btn">
+                                    <i class="fas fa-user-plus btn-icon"></i>
+                                    <span class="btn-text">Регистрация</span>
+                                </a>
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Кнопка мобильного меню -->
+                        <button class="mobile-menu-toggle" id="mobile-menu-toggle" aria-label="Меню" aria-expanded="false">
+                            <span class="toggle-line"></span>
+                            <span class="toggle-line"></span>
+                            <span class="toggle-line"></span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Мобильное меню -->
+        <div class="mobile-menu" id="mobile-menu">
+            <div class="mobile-menu-overlay" id="mobile-menu-overlay"></div>
+            <div class="mobile-menu-container">
+                <div class="mobile-menu-header">
+                    <div class="mobile-logo">
+                        <i class="fas fa-crown mobile-logo-icon"></i>
+                        <div class="mobile-logo-text">
+                            <h3 class="mobile-logo-title">{{ shop_name }}</h3>
+                            <span class="mobile-logo-subtitle">{{ shop_slogan }}</span>
+                        </div>
+                    </div>
+                    <button class="mobile-menu-close" id="mobile-menu-close" aria-label="Закрыть меню">
+                        <i class="fas fa-times close-icon"></i>
+                    </button>
+                </div>
+
+                <div class="mobile-menu-content">
+                    <!-- Информация о пользователе -->
+                    <div class="mobile-user-section">
+                        {% if current_user.is_authenticated %}
+                        <div class="mobile-user-info">
+                            <div class="mobile-user-avatar">
+                                {% if current_user.telegram_id %}
+                                <img src="https://api.telegram.org/file/bot{{ config.TELEGRAM_BOT_TOKEN if config.TELEGRAM_BOT_TOKEN else 'bot' }}/photos/{{ current_user.telegram_id }}.jpg" 
+                                     alt="{{ current_user.first_name }}"
+                                     onerror="this.src='{{ url_for('static', filename='img/users/default.jpg') }}'">
+                                {% else %}
+                                <div class="mobile-avatar-placeholder">
+                                    <i class="fas fa-user-circle"></i>
+                                </div>
+                                {% endif %}
+                                {% if current_user.is_vip %}
+                                <span class="mobile-vip-badge">
+                                    <i class="fas fa-crown"></i>
+                                </span>
+                                {% endif %}
+                            </div>
+                            <div class="mobile-user-details">
+                                <h4 class="mobile-user-name">{{ current_user.first_name }} {{ current_user.last_name }}</h4>
+                                <span class="mobile-user-status {% if current_user.is_vip %}mobile-vip-status{% else %}mobile-standard-status{% endif %}">
+                                    {% if current_user.is_vip %}VIP клиент{% else %}Стандарт{% endif %}
+                                </span>
+                                <div class="mobile-user-stats">
+                                    <span class="mobile-stat-item">
+                                        <i class="fas fa-shopping-bag"></i>
+                                        <span>{{ current_user.total_orders }}</span>
+                                    </span>
+                                    <span class="mobile-stat-item">
+                                        <i class="fas fa-coins"></i>
+                                        <span>{{ format_price(current_user.total_spent) }}</span>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        {% else %}
+                        <div class="mobile-auth-section">
+                            <p class="mobile-auth-text">Войдите в аккаунт для доступа ко всем функциям</p>
+                            <div class="mobile-auth-buttons">
+                                <a href="{{ url_for('login') }}" class="mobile-btn-login">
+                                    <i class="fas fa-sign-in-alt"></i>
+                                    <span>Войти</span>
+                                </a>
+                                <a href="{{ url_for('register') }}" class="mobile-btn-register">
+                                    <i class="fas fa-user-plus"></i>
+                                    <span>Регистрация</span>
+                                </a>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Основная навигация -->
+                    <nav class="mobile-nav">
+                        <ul class="mobile-nav-list">
+                            <li class="mobile-nav-item">
+                                <a href="{{ url_for('index') }}" class="mobile-nav-link {% if request.endpoint == 'index' %}active{% endif %}">
+                                    <i class="fas fa-home mobile-nav-icon"></i>
+                                    <span class="mobile-nav-text">Главная</span>
+                                </a>
+                            </li>
+                            <li class="mobile-nav-item">
+                                <a href="{{ url_for('catalog_page') }}" class="mobile-nav-link {% if request.endpoint == 'catalog_page' %}active{% endif %}">
+                                    <i class="fas fa-tshirt mobile-nav-icon"></i>
+                                    <span class="mobile-nav-text">Каталог</span>
+                                </a>
+                            </li>
+                            <li class="mobile-nav-item">
+                                <a href="{{ url_for('cart_page') }}" class="mobile-nav-link {% if request.endpoint == 'cart_page' %}active{% endif %}">
+                                    <i class="fas fa-shopping-bag mobile-nav-icon"></i>
+                                    <span class="mobile-nav-text">Корзина</span>
+                                    {% if current_user.is_authenticated and cart_count > 0 %}
+                                    <span class="mobile-cart-badge">{{ cart_count }}</span>
+                                    {% endif %}
+                                </a>
+                            </li>
+                            <li class="mobile-nav-item">
+                                <a href="{{ url_for('orders') }}" class="mobile-nav-link {% if request.endpoint == 'orders' %}active{% endif %}">
+                                    <i class="fas fa-history mobile-nav-icon"></i>
+                                    <span class="mobile-nav-text">Заказы</span>
+                                </a>
+                            </li>
+                            <li class="mobile-nav-item">
+                                <a href="{{ url_for('profile') }}" class="mobile-nav-link {% if request.endpoint == 'profile' %}active{% endif %}">
+                                    <i class="fas fa-user mobile-nav-icon"></i>
+                                    <span class="mobile-nav-text">Профиль</span>
+                                </a>
+                            </li>
+                            <li class="mobile-nav-item">
+                                <a href="{{ url_for('wishlist_page') if current_user.is_authenticated else url_for('login') }}" class="mobile-nav-link">
+                                    <i class="fas fa-heart mobile-nav-icon"></i>
+                                    <span class="mobile-nav-text">Избранное</span>
+                                    <span class="mobile-wishlist-badge" id="mobile-wishlist-count">0</span>
+                                </a>
+                            </li>
+                            <li class="mobile-nav-item">
+                                <a href="{{ url_for('compare_page') if current_user.is_authenticated else url_for('login') }}" class="mobile-nav-link">
+                                    <i class="fas fa-exchange-alt mobile-nav-icon"></i>
+                                    <span class="mobile-nav-text">Сравнение</span>
+                                    <span class="mobile-compare-badge" id="mobile-compare-count">0</span>
+                                </a>
+                            </li>
+                            <li class="mobile-nav-item">
+                                <a href="{{ url_for('notifications_page') if current_user.is_authenticated else url_for('login') }}" class="mobile-nav-link">
+                                    <i class="fas fa-bell mobile-nav-icon"></i>
+                                    <span class="mobile-nav-text">Уведомления</span>
+                                    <span class="mobile-notifications-badge" id="mobile-notifications-count">0</span>
+                                </a>
+                            </li>
+                            {% if current_user.is_authenticated and current_user.is_admin %}
+                            <li class="mobile-nav-item">
+                                <a href="{{ url_for('admin_panel') }}" class="mobile-nav-link admin-link">
+                                    <i class="fas fa-cog mobile-nav-icon"></i>
+                                    <span class="mobile-nav-text">Админ панель</span>
+                                    <span class="mobile-admin-badge">ADMIN</span>
+                                </a>
+                            </li>
+                            {% endif %}
+                            {% if current_user.is_authenticated %}
+                            <li class="mobile-nav-item">
+                                <a href="{{ url_for('logout') }}" class="mobile-nav-link logout-link">
+                                    <i class="fas fa-sign-out-alt mobile-nav-icon"></i>
+                                    <span class="mobile-nav-text">Выйти</span>
+                                </a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+
+                    <!-- Контакты в мобильном меню -->
+                    <div class="mobile-contacts-section">
+                        <h4 class="mobile-contacts-title">Контакты</h4>
+                        <div class="mobile-contacts-list">
+                            <a href="tel:{{ shop_phone }}" class="mobile-contact-item">
+                                <i class="fas fa-phone contact-icon"></i>
+                                <span class="contact-text">{{ shop_phone }}</span>
+                            </a>
+                            <a href="mailto:{{ shop_email }}" class="mobile-contact-item">
+                                <i class="fas fa-envelope contact-icon"></i>
+                                <span class="contact-text">{{ shop_email }}</span>
+                            </a>
+                            <a href="https://t.me/{{ support_username|replace('@', '') }}" 
+                               class="mobile-contact-item" 
+                               target="_blank" 
+                               rel="noopener noreferrer">
+                                <i class="fab fa-telegram contact-icon"></i>
+                                <span class="contact-text">{{ support_username }}</span>
+                            </a>
+                        </div>
+                        <div class="mobile-social-links">
+                            <a href="#" class="mobile-social-link" aria-label="Instagram">
+                                <i class="fab fa-instagram"></i>
+                            </a>
+                            <a href="#" class="mobile-social-link" aria-label="VK">
+                                <i class="fab fa-vk"></i>
+                            </a>
+                            <a href="#" class="mobile-social-link" aria-label="WhatsApp">
+                                <i class="fab fa-whatsapp"></i>
+                            </a>
+                            <a href="#" class="mobile-social-link" aria-label="YouTube">
+                                <i class="fab fa-youtube"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Основной контент -->
+        <main class="main-content" id="main-content">
+            <!-- Сообщения Flask -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                <div class="flash-messages-container">
+                    <div class="container">
+                        <div class="flash-messages">
+                            {% for category, message in messages %}
+                            <div class="flash-message flash-{{ category }}" role="alert">
+                                <div class="flash-content">
+                                    <div class="flash-icon">
+                                        {% if category == 'success' %}
+                                        <i class="fas fa-check-circle"></i>
+                                        {% elif category == 'error' %}
+                                        <i class="fas fa-exclamation-circle"></i>
+                                        {% elif category == 'warning' %}
+                                        <i class="fas fa-exclamation-triangle"></i>
+                                        {% elif category == 'info' %}
+                                        <i class="fas fa-info-circle"></i>
+                                        {% else %}
+                                        <i class="fas fa-bell"></i>
+                                        {% endif %}
+                                    </div>
+                                    <div class="flash-text">{{ message }}</div>
+                                    <button class="flash-close" aria-label="Закрыть">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                                <div class="flash-progress"></div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            {% endwith %}
+
+            <!-- Блок контента -->
+            {% block content %}{% endblock %}
+        </main>
+
+        <!-- Подвал -->
+        <footer class="footer" id="footer">
+            <div class="container">
+                <div class="footer-content">
+                    <!-- Колонка 1: О магазине -->
+                    <div class="footer-column">
+                        <div class="footer-logo">
+                            <i class="fas fa-crown footer-logo-icon"></i>
+                            <h3 class="footer-logo-title">{{ shop_name }}</h3>
+                        </div>
+                        <p class="footer-description">
+                            {{ shop_slogan }}<br>
+                            Эксклюзивная люксовая одежда от ведущих мировых дизайнеров
+                        </p>
+                        <div class="footer-newsletter">
+                            <h4 class="newsletter-title">Подпишитесь на новости</h4>
+                            <p class="newsletter-subtitle">Узнавайте первыми о новых коллекциях и акциях</p>
+                            <form class="newsletter-form" id="newsletter-form">
+                                <div class="newsletter-input-group">
+                                    <input type="email" 
+                                           class="newsletter-input" 
+                                           placeholder="Ваш email" 
+                                           required
+                                           aria-label="Email для подписки">
+                                    <button type="submit" class="newsletter-button" aria-label="Подписаться">
+                                        <i class="fas fa-paper-plane"></i>
+                                    </button>
+                                </div>
+                                <div class="newsletter-agreement">
+                                    <input type="checkbox" id="newsletter-agree" required>
+                                    <label for="newsletter-agree">
+                                        Я согласен на обработку персональных данных
+                                    </label>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Колонка 2: Каталог -->
+                    <div class="footer-column">
+                        <h4 class="footer-title">Каталог</h4>
+                        <ul class="footer-links">
+                            <li class="footer-link-item">
+                                <a href="{{ url_for('catalog_page') }}?category=Платья" class="footer-link">
+                                    <i class="fas fa-chevron-right link-icon"></i>
+                                    <span>Платья</span>
+                                </a>
+                            </li>
+                            <li class="footer-link-item">
+                                <a href="{{ url_for('catalog_page') }}?category=Костюмы" class="footer-link">
+                                    <i class="fas fa-chevron-right link-icon"></i>
+                                    <span>Костюмы</span>
+                                </a>
+                            </li>
+                            <li class="footer-link-item">
+                                <a href="{{ url_for('catalog_page') }}?category=Блузы" class="footer-link">
+                                    <i class="fas fa-chevron-right link-icon"></i>
+                                    <span>Блузы</span>
+                                </a>
+                            </li>
+                            <li class="footer-link-item">
+                                <a href="{{ url_for('catalog_page') }}?category=Брюки" class="footer-link">
+                                    <i class="fas fa-chevron-right link-icon"></i>
+                                    <span>Брюки</span>
+                                </a>
+                            </li>
+                            <li class="footer-link-item">
+                                <a href="{{ url_for('catalog_page') }}?category=Юбки" class="footer-link">
+                                    <i class="fas fa-chevron-right link-icon"></i>
+                                    <span>Юбки</span>
+                                </a>
+                            </li>
+                            <li class="footer-link-item">
+                                <a href="{{ url_for('catalog_page') }}?category=Куртки" class="footer-link">
+                                    <i class="fas fa-chevron-right link-icon"></i>
+                                    <span>Куртки</span>
+                                </a>
+                            </li>
+                            <li class="footer-link-item">
+                                <a href="{{ url_for('catalog_page') }}?category=Пальто" class="footer-link">
+                                    <i class="fas fa-chevron-right link-icon"></i>
+                                    <span>Пальто</span>
+                                </a>
+                            </li>
+                            <li class="footer-link-item">
+                                <a href="{{ url_for('catalog_page') }}?category=Обувь" class="footer-link">
+                                    <i class="fas fa-chevron-right link-icon"></i>
+                                    <span>Обувь</span>
+                                </a>
+                            </li>
+                            <li class="footer-link-item">
+                                <a href="{{ url_for('catalog_page') }}?category=Сумки" class="footer-link">
+                                    <i class="fas fa-chevron-right link-icon"></i>
+                                    <span>Сумки</span>
+                                </a>
+                            </li>
+                            <li class="footer-link-item">
+                                <a href="{{ url_for('catalog_page') }}?category=Украшения" class="footer-link">
+                                    <i class="fas fa-chevron-right link-icon"></i>
+                                    <span>Украшения</span>
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <!-- Колонка 3: Помощь -->
+                    <div class="footer-column">
+                        <h4 class="footer-title">Помощь</h4>
+                        <ul class="footer-links">
+                            <li class="footer-link-item">
+                                <a href="#" class="footer-link">
+                                    <i class="fas fa-chevron-right link-icon"></i>
+                                    <span>Доставка и оплата</span>
+                                </a>
+                            </li>
+                            <li class="footer-link-item">
+                                <a href="#" class="footer-link">
+                                    <i class="fas fa-chevron-right link-icon"></i>
+                                    <span>Возврат и обмен</span>
+                                </a>
+                            </li>
+                            <li class="footer-link-item">
+                                <a href="#" class="footer-link">
+                                    <i class="fas fa-chevron-right link-icon"></i>
+                                    <span>Таблица размеров</span>
+                                </a>
+                            </li>
+                            <li class="footer-link-item">
+                                <a href="#" class="footer-link">
+                                    <i class="fas fa-chevron-right link-icon"></i>
+                                    <span>Уход за одеждой</span>
+                                </a>
+                            </li>
+                            <li class="footer-link-item">
+                                <a href="#" class="footer-link">
+                                    <i class="fas fa-chevron-right link-icon"></i>
+                                    <span>Частые вопросы</span>
+                                </a>
+                            </li>
+                            <li class="footer-link-item">
+                                <a href="#" class="footer-link">
+                                    <i class="fas fa-chevron-right link-icon"></i>
+                                    <span>Публичная оферта</span>
+                                </a>
+                            </li>
+                            <li class="footer-link-item">
+                                <a href="#" class="footer-link">
+                                    <i class="fas fa-chevron-right link-icon"></i>
+                                    <span>Политика конфиденциальности</span>
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <!-- Колонка 4: Контакты -->
+                    <div class="footer-column">
+                        <h4 class="footer-title">Контакты</h4>
+                        <div class="footer-contacts">
+                            <div class="contact-item">
+                                <div class="contact-icon-wrapper">
+                                    <i class="fas fa-phone contact-icon"></i>
+                                </div>
+                                <div class="contact-info">
+                                    <span class="contact-label">Телефон</span>
+                                    <a href="tel:{{ shop_phone }}" class="contact-value">{{ shop_phone }}</a>
+                                </div>
+                            </div>
+                            <div class="contact-item">
+                                <div class="contact-icon-wrapper">
+                                    <i class="fas fa-envelope contact-icon"></i>
+                                </div>
+                                <div class="contact-info">
+                                    <span class="contact-label">Email</span>
+                                    <a href="mailto:{{ shop_email }}" class="contact-value">{{ shop_email }}</a>
+                                </div>
+                            </div>
+                            <div class="contact-item">
+                                <div class="contact-icon-wrapper">
+                                    <i class="fab fa-telegram contact-icon"></i>
+                                </div>
+                                <div class="contact-info">
+                                    <span class="contact-label">Telegram</span>
+                                    <a href="https://t.me/{{ support_username|replace('@', '') }}" 
+                                       target="_blank" 
+                                       rel="noopener noreferrer"
+                                       class="contact-value">{{ support_username }}</a>
+                                </div>
+                            </div>
+                            <div class="contact-item">
+                                <div class="contact-icon-wrapper">
+                                    <i class="fas fa-clock contact-icon"></i>
+                                </div>
+                                <div class="contact-info">
+                                    <span class="contact-label">Часы работы</span>
+                                    <span class="contact-value">Пн-Вс: 10:00-22:00</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Социальные сети -->
+                        <div class="footer-social">
+                            <h4 class="social-title">Мы в соцсетях</h4>
+                            <div class="social-links">
+                                <a href="#" class="social-link" aria-label="Instagram">
+                                    <i class="fab fa-instagram"></i>
+                                </a>
+                                <a href="#" class="social-link" aria-label="VK">
+                                    <i class="fab fa-vk"></i>
+                                </a>
+                                <a href="#" class="social-link" aria-label="Telegram">
+                                    <i class="fab fa-telegram"></i>
+                                </a>
+                                <a href="#" class="social-link" aria-label="WhatsApp">
+                                    <i class="fab fa-whatsapp"></i>
+                                </a>
+                                <a href="#" class="social-link" aria-label="YouTube">
+                                    <i class="fab fa-youtube"></i>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Нижняя часть подвала -->
+                <div class="footer-bottom">
+                    <div class="footer-bottom-content">
+                        <!-- Копирайт -->
+                        <div class="footer-copyright">
+                            <p class="copyright-text">
+                                &copy; {{ current_year }} {{ shop_name }}. Все права защищены.
+                            </p>
+                            <p class="copyright-subtext">
+                                Люксовый бренд одежды класса люкс
+                            </p>
+                        </div>
+
+                        <!-- Способы оплаты -->
+                        <div class="footer-payments">
+                            <span class="payments-label">Принимаем к оплате:</span>
+                            <div class="payments-icons">
+                                <i class="fab fa-cc-visa payment-icon" title="Visa"></i>
+                                <i class="fab fa-cc-mastercard payment-icon" title="Mastercard"></i>
+                                <i class="fab fa-cc-amex payment-icon" title="American Express"></i>
+                                <i class="fab fa-cc-paypal payment-icon" title="PayPal"></i>
+                                <i class="fab fa-cc-apple-pay payment-icon" title="Apple Pay"></i>
+                                <i class="fab fa-cc-google-pay payment-icon" title="Google Pay"></i>
+                                <i class="fas fa-credit-card payment-icon" title="Банковские карты"></i>
+                            </div>
+                        </div>
+
+                        <!-- Приложения -->
+                        <div class="footer-apps">
+                            <a href="#" class="app-store-btn" aria-label="Скачать в App Store">
+                                <i class="fab fa-apple app-icon"></i>
+                                <div class="app-text">
+                                    <span class="app-label">Download on the</span>
+                                    <span class="app-name">App Store</span>
+                                </div>
+                            </a>
+                            <a href="#" class="google-play-btn" aria-label="Скачать в Google Play">
+                                <i class="fab fa-google-play app-icon"></i>
+                                <div class="app-text">
+                                    <span class="app-label">GET IT ON</span>
+                                    <span class="app-name">Google Play</span>
+                                </div>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Кнопка "Наверх" -->
+    <button class="back-to-top" id="back-to-top" aria-label="Наверх">
+        <i class="fas fa-chevron-up"></i>
+    </button>
+
+    <!-- Загрузчик файлов (скрытый) -->
+    <input type="file" id="file-upload-input" accept="image/*" style="display: none;">
+
+    <!-- Основные скрипты -->
+    <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+    
+    <!-- Модули JavaScript -->
+    <script type="module" src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='js/cart.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='js/catalog.js') }}"></script>
+    
+    <!-- Инициализация приложения -->
+    <script>
+        // Глобальные переменные
+        window.appConfig = JSON.parse(document.getElementById('app-config').textContent);
+        window.isMobile = window.innerWidth < 768;
+        
+        // Основная функция инициализации
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 Инициализация VOGUE ÉLITE...');
+            
+            // Управление прелоадером
+            const preloader = document.getElementById('preloader');
+            const preloaderProgress = document.getElementById('preloader-progress');
+            const preloaderText = document.getElementById('preloader-text');
+            
+            let progress = 0;
+            const preloaderInterval = setInterval(() => {
+                progress += 10;
+                if (preloaderProgress) {
+                    preloaderProgress.style.width = progress + '%';
+                }
+                if (progress >= 100) {
+                    clearInterval(preloaderInterval);
+                    setTimeout(() => {
+                        preloader.classList.add('loaded');
+                        setTimeout(() => {
+                            preloader.style.display = 'none';
+                        }, 500);
+                    }, 300);
+                }
+            }, 100);
+            
+            // Инициализация меню пользователя
+            const userMenuToggle = document.getElementById('user-menu-toggle');
+            const userDropdown = document.getElementById('user-dropdown');
+            
+            if (userMenuToggle && userDropdown) {
+                userMenuToggle.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const isExpanded = this.getAttribute('aria-expanded') === 'true';
+                    this.setAttribute('aria-expanded', !isExpanded);
+                    userDropdown.classList.toggle('show', !isExpanded);
+                });
+                
+                // Закрытие при клике вне меню
+                document.addEventListener('click', function(e) {
+                    if (!userMenuToggle.contains(e.target) && !userDropdown.contains(e.target)) {
+                        userMenuToggle.setAttribute('aria-expanded', 'false');
+                        userDropdown.classList.remove('show');
+                    }
+                });
+            }
+            
+            // Инициализация мобильного меню
+            const mobileMenuToggle = document.getElementById('mobile-menu-toggle');
+            const mobileMenu = document.getElementById('mobile-menu');
+            const mobileMenuClose = document.getElementById('mobile-menu-close');
+            const mobileMenuOverlay = document.getElementById('mobile-menu-overlay');
+            
+            if (mobileMenuToggle && mobileMenu) {
+                mobileMenuToggle.addEventListener('click', function() {
+                    this.setAttribute('aria-expanded', 'true');
+                    mobileMenu.classList.add('active');
+                    document.body.style.overflow = 'hidden';
+                });
+                
+                const closeMobileMenu = function() {
+                    mobileMenuToggle.setAttribute('aria-expanded', 'false');
+                    mobileMenu.classList.remove('active');
+                    document.body.style.overflow = '';
+                };
+                
+                if (mobileMenuClose) mobileMenuClose.addEventListener('click', closeMobileMenu);
+                if (mobileMenuOverlay) mobileMenuOverlay.addEventListener('click', closeMobileMenu);
+            }
+            
+            // Инициализация поиска
+            const searchToggle = document.getElementById('search-toggle');
+            const searchDropdown = document.getElementById('search-dropdown');
+            
+            if (searchToggle && searchDropdown) {
+                searchToggle.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    searchDropdown.classList.toggle('show');
+                    if (searchDropdown.classList.contains('show')) {
+                        document.getElementById('global-search-input').focus();
+                    }
+                });
+                
+                document.addEventListener('click', function(e) {
+                    if (!searchToggle.contains(e.target) && !searchDropdown.contains(e.target)) {
+                        searchDropdown.classList.remove('show');
+                    }
+                });
+                
+                // Обработка ввода поиска
+                const searchInput = document.getElementById('global-search-input');
+                const searchSubmit = document.getElementById('search-submit');
+                const searchClear = document.getElementById('search-clear');
+                const searchResults = document.getElementById('search-results');
+                
+                if (searchInput) {
+                    let searchTimeout;
+                    
+                    searchInput.addEventListener('input', function() {
+                        clearTimeout(searchTimeout);
+                        searchTimeout = setTimeout(() => {
+                            const query = this.value.trim();
+                            if (query.length >= 2) {
+                                performSearch(query);
+                            } else {
+                                clearSearchResults();
+                            }
+                        }, 500);
+                    });
+                    
+                    searchInput.addEventListener('keypress', function(e) {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            const query = this.value.trim();
+                            if (query) {
+                                window.location.href = '{{ url_for("catalog_page") }}?q=' + encodeURIComponent(query);
+                            }
+                        }
+                    });
+                }
+                
+                if (searchSubmit) {
+                    searchSubmit.addEventListener('click', function() {
+                        const query = searchInput.value.trim();
+                        if (query) {
+                            window.location.href = '{{ url_for("catalog_page") }}?q=' + encodeURIComponent(query);
+                        }
+                    });
+                }
+                
+                if (searchClear) {
+                    searchClear.addEventListener('click', function() {
+                        searchInput.value = '';
+                        clearSearchResults();
+                        searchInput.focus();
+                    });
+                }
+                
+                function performSearch(query) {
+                    fetch(`/api/search?q=${encodeURIComponent(query)}&limit=5`)
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success && data.results.length > 0) {
+                                displaySearchResults(data.results);
+                            } else {
+                                clearSearchResults();
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Search error:', error);
+                            clearSearchResults();
+                        });
+                }
+                
+                function displaySearchResults(results) {
+                    if (!searchResults) return;
+                    
+                    searchResults.innerHTML = '';
+                    searchResults.classList.add('has-results');
+                    
+                    results.forEach(result => {
+                        const resultItem = document.createElement('a');
+                        resultItem.href = result.url;
+                        resultItem.className = 'search-result-item';
+                        resultItem.innerHTML = `
+                            <div class="search-result-image">
+                                <img src="${result.image_url}" alt="${result.name}" loading="lazy">
+                            </div>
+                            <div class="search-result-content">
+                                <h4 class="search-result-title">${result.name}</h4>
+                                <div class="search-result-meta">
+                                    <span class="search-result-category">${result.category}</span>
+                                    <span class="search-result-price">${result.price.toLocaleString()} ${window.appConfig.currency}</span>
+                                </div>
+                            </div>
+                        `;
+                        searchResults.appendChild(resultItem);
+                    });
+                    
+                    const viewAllItem = document.createElement('a');
+                    viewAllItem.href = `{{ url_for("catalog_page") }}?q=${encodeURIComponent(searchInput.value.trim())}`;
+                    viewAllItem.className = 'search-result-view-all';
+                    viewAllItem.innerHTML = `
+                        <i class="fas fa-search"></i>
+                        <span>Все результаты поиска</span>
+                        <i class="fas fa-chevron-right"></i>
+                    `;
+                    searchResults.appendChild(viewAllItem);
+                }
+                
+                function clearSearchResults() {
+                    if (searchResults) {
+                        searchResults.innerHTML = '';
+                        searchResults.classList.remove('has-results');
+                    }
+                }
+            }
+            
+            // Инициализация кнопки "Наверх"
+            const backToTop = document.getElementById('back-to-top');
+            if (backToTop) {
+                window.addEventListener('scroll', function() {
+                    if (window.pageYOffset > 300) {
+                        backToTop.classList.add('visible');
+                    } else {
+                        backToTop.classList.remove('visible');
+                    }
+                });
+                
+                backToTop.addEventListener('click', function() {
+                    window.scrollTo({
+                        top: 0,
+                        behavior: 'smooth'
+                    });
+                });
+            }
+            
+            // Инициализация сообщений Flash
+            const flashMessages = document.querySelectorAll('.flash-message');
+            flashMessages.forEach(message => {
+                const closeBtn = message.querySelector('.flash-close');
+                const progressBar = message.querySelector('.flash-progress');
+                
+                if (closeBtn) {
+                    closeBtn.addEventListener('click', function() {
+                        message.style.opacity = '0';
+                        setTimeout(() => {
+                            message.remove();
+                        }, 300);
+                    });
+                }
+                
+                if (progressBar) {
+                    progressBar.style.width = '100%';
+                    progressBar.style.transition = 'width 5s linear';
+                    setTimeout(() => {
+                        progressBar.style.width = '0%';
+                    }, 10);
+                }
+                
+                setTimeout(() => {
+                    if (message.parentNode) {
+                        message.style.opacity = '0';
+                        setTimeout(() => {
+                            if (message.parentNode) {
+                                message.remove();
+                            }
+                        }, 300);
+                    }
+                }, 5000);
+            });
+            
+            // Инициализация меню навигации
+            const navLinks = document.querySelectorAll('[data-nav-link]');
+            navLinks.forEach(link => {
+                link.addEventListener('click', function() {
+                    navLinks.forEach(l => l.classList.remove('active'));
+                    this.classList.add('active');
+                });
+            });
+            
+            // Инициализация подписки на новости
+            const newsletterForm = document.getElementById('newsletter-form');
+            if (newsletterForm) {
+                newsletterForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    
+                    const email = this.querySelector('.newsletter-input').value;
+                    const agree = this.querySelector('#newsletter-agree').checked;
+                    
+                    if (!agree) {
+                        showNotification('Пожалуйста, согласитесь на обработку персональных данных', 'warning');
+                        return;
+                    }
+                    
+                    fetch('/api/newsletter/subscribe', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify({ email: email })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            showNotification('Вы успешно подписались на рассылку!', 'success');
+                            this.reset();
+                        } else {
+                            showNotification(data.message || 'Ошибка подписки', 'error');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Newsletter error:', error);
+                        showNotification('Ошибка сети', 'error');
+                    });
+                });
+            }
+            
+            // Загрузка данных избранного и сравнения
+            if (window.appConfig.is_authenticated) {
+                loadWishlistCount();
+                loadCompareCount();
+                loadNotificationsCount();
+            }
+            
+            // Обработка выхода
+            const logoutBtn = document.getElementById('logout-btn');
+            if (logoutBtn) {
+                logoutBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    
+                    if (confirm('Вы уверены, что хотите выйти?')) {
+                        fetch('/api/auth/logout', {
+                            method: 'POST',
+                            headers: {
+                                'Accept': 'application/json'
+                            }
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                window.location.href = data.redirect || '/';
+                            }
+                        })
+                        .catch(() => {
+                            window.location.href = '/logout';
+                        });
+                    }
+                });
+            }
+            
+            // Ресайз окна
+            let resizeTimeout;
+            window.addEventListener('resize', function() {
+                clearTimeout(resizeTimeout);
+                resizeTimeout = setTimeout(() => {
+                    window.isMobile = window.innerWidth < 768;
+                    
+                    if (!window.isMobile && mobileMenu && mobileMenu.classList.contains('active')) {
+                        mobileMenu.classList.remove('active');
+                        document.body.style.overflow = '';
+                        if (mobileMenuToggle) {
+                            mobileMenuToggle.setAttribute('aria-expanded', 'false');
+                        }
+                    }
+                }, 250);
+            });
+            
+            // Keyboard shortcuts
+            document.addEventListener('keydown', function(e) {
+                // Ctrl + / для поиска
+                if ((e.ctrlKey || e.metaKey) && e.key === '/') {
+                    e.preventDefault();
+                    const searchInput = document.getElementById('global-search-input');
+                    if (searchInput) {
+                        searchDropdown.classList.add('show');
+                        searchInput.focus();
+                    }
+                }
+                
+                // Escape для закрытия меню
+                if (e.key === 'Escape') {
+                    if (mobileMenu && mobileMenu.classList.contains('active')) {
+                        mobileMenu.classList.remove('active');
+                        document.body.style.overflow = '';
+                        if (mobileMenuToggle) {
+                            mobileMenuToggle.setAttribute('aria-expanded', 'false');
+                        }
+                    }
+                    
+                    if (userDropdown && userDropdown.classList.contains('show')) {
+                        userDropdown.classList.remove('show');
+                        if (userMenuToggle) {
+                            userMenuToggle.setAttribute('aria-expanded', 'false');
+                        }
+                    }
+                    
+                    if (searchDropdown && searchDropdown.classList.contains('show')) {
+                        searchDropdown.classList.remove('show');
+                    }
+                }
+            });
+            
+            // Показать уведомление
+            window.showNotification = function(message, type = 'info') {
+                const container = document.getElementById('notifications-container');
+                if (!container) return;
+                
+                const notification = document.createElement('div');
+                notification.className = `notification notification-${type}`;
+                notification.innerHTML = `
+                    <div class="notification-content">
+                        <div class="notification-icon">
+                            <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : type === 'warning' ? 'exclamation-triangle' : 'info-circle'}"></i>
+                        </div>
+                        <div class="notification-message">${message}</div>
+                        <button class="notification-close" aria-label="Закрыть">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="notification-progress"></div>
+                `;
+                
+                container.appendChild(notification);
+                
+                // Анимация появления
+                setTimeout(() => {
+                    notification.classList.add('show');
+                }, 10);
+                
+                // Автоматическое закрытие
+                const autoClose = setTimeout(() => {
+                    notification.classList.remove('show');
+                    setTimeout(() => {
+                        if (notification.parentNode) {
+                            notification.remove();
+                        }
+                    }, 300);
+                }, 5000);
+                
+                // Закрытие по клику
+                const closeBtn = notification.querySelector('.notification-close');
+                if (closeBtn) {
+                    closeBtn.addEventListener('click', function() {
+                        clearTimeout(autoClose);
+                        notification.classList.remove('show');
+                        setTimeout(() => {
+                            if (notification.parentNode) {
+                                notification.remove();
+                            }
+                        }, 300);
+                    });
+                }
+            };
+            
+            // Загрузка счетчиков
+            function loadWishlistCount() {
+                fetch('/api/wishlist')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            updateWishlistCount(data.count);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error loading wishlist count:', error);
+                    });
+            }
+            
+            function loadCompareCount() {
+                fetch('/api/compare')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            updateCompareCount(data.count);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error loading compare count:', error);
+                    });
+            }
+            
+            function loadNotificationsCount() {
+                fetch('/api/notifications/unread')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            updateNotificationsCount(data.count);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error loading notifications count:', error);
+                    });
+            }
+            
+            function updateWishlistCount(count) {
+                const badges = document.querySelectorAll('#wishlist-badge, #dropdown-wishlist-count, #mobile-wishlist-count');
+                badges.forEach(badge => {
+                    if (badge) {
+                        badge.textContent = count;
+                        badge.style.display = count > 0 ? 'flex' : 'none';
+                    }
+                });
+            }
+            
+            function updateCompareCount(count) {
+                const badges = document.querySelectorAll('#compare-badge, #dropdown-compare-count, #mobile-compare-count');
+                badges.forEach(badge => {
+                    if (badge) {
+                        badge.textContent = count;
+                        badge.style.display = count > 0 ? 'flex' : 'none';
+                    }
+                });
+            }
+            
+            function updateNotificationsCount(count) {
+                const badges = document.querySelectorAll('#dropdown-notifications-count, #mobile-notifications-count');
+                badges.forEach(badge => {
+                    if (badge) {
+                        badge.textContent = count;
+                        badge.style.display = count > 0 ? 'flex' : 'none';
+                    }
+                });
+            }
+            
+            // Обновление счетчика корзины
+            function updateCartCount(count) {
+                const badges = document.querySelectorAll('#cart-badge, .mobile-cart-badge');
+                badges.forEach(badge => {
+                    if (badge) {
+                        badge.textContent = count;
+                        badge.style.display = count > 0 ? 'flex' : 'none';
+                    }
+                });
+            }
+            
+            // Подписка на обновления корзины
+            if (window.cartManager) {
+                window.cartManager.onUpdate(() => {
+                    updateCartCount(window.appConfig.cart_count);
+                });
+            }
+            
+            // Инициализация аналитики
+            window.trackEvent = function(category, action, label) {
+                if (typeof gtag !== 'undefined') {
+                    gtag('event', action, {
+                        'event_category': category,
+                        'event_label': label,
+                        'value': 1
+                    });
+                }
+                
+                // Отправка на сервер
+                fetch('/api/analytics/track', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        event: `${category}_${action}`,
+                        label: label,
+                        timestamp: Date.now(),
+                        url: window.location.href,
+                        user_id: window.appConfig.user_id
+                    })
+                }).catch(() => {
+                    // Игнорируем ошибки аналитики
+                });
+            };
+            
+            // Трекинг страницы
+            trackEvent('page', 'view', window.location.pathname);
+            
+            console.log('✅ VOGUE ÉLITE инициализирован');
+        });
+        
+        // Обработка ошибок
+        window.addEventListener('error', function(e) {
+            console.error('Global error:', e.error);
+            
+            if (window.trackEvent) {
+                window.trackEvent('error', 'uncaught', e.error?.message || 'Unknown error');
+            }
+            
+            if (!window.appConfig.debug) {
+                window.showNotification('Произошла ошибка. Пожалуйста, обновите страницу.', 'error');
+            }
+        });
+        
+        window.addEventListener('unhandledrejection', function(e) {
+            console.error('Unhandled promise rejection:', e.reason);
+            
+            if (window.trackEvent) {
+                window.trackEvent('error', 'promise_rejection', e.reason?.message || 'Unknown rejection');
+            }
+        });
+    </script>
+    
+    <!-- Дополнительные скрипты -->
+    {% block extra_js %}{% endblock %}
+    
+    <!-- Google Analytics (опционально) -->
+    {% if config.get('GA_TRACKING_ID') %}
+    <script async src="https://www.googletagmanager.com/gtag/js?id={{ config.GA_TRACKING_ID }}"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', '{{ config.GA_TRACKING_ID }}');
+    </script>
+    {% endif %}
+</body>
+</html>
